@@ -63,7 +63,8 @@
 
 - **Frontend:** Vite + React + TypeScript, деплой **Netlify**. Делает Claude (Opus). Чистый виджет, без тяжёлых UI-китов.
 - **Backend:** Node + Express + TypeScript, деплой **Render**. Делает Gemini (agy). Эндпоинты: `POST /api/chat`, `POST /api/lead`, `POST /api/excuse`, `GET /api/student/:code`, `GET /api/admin/*`.
-- **LLM:** Claude API (`claude-*`). Ключ — у владельца (env `ANTHROPIC_API_KEY`). Эмбеддинги — тем же провайдером или `text-embedding` (уточнить ключ).
+- **LLM:** Gemini через **OmniRoute** (локальный OpenAI-совместимый шлюз, `http://localhost:20128/v1`, провайдер `agy`). Бэкенд пишем **провайдер-агностично**: эндпоинт задаётся через env (`LLM_BASE_URL`, `LLM_API_KEY`, `CHAT_MODEL`, `EMBED_MODEL`). Так работает и OmniRoute локально, и любой OpenAI-совместимый эндпоинт на сервере.
+  - **Деплой-развилка (решить до Этапа 4):** либо (A) всё крутится на твоём компе + Cloudflare-туннель (используем OmniRoute/бесплатный Gemini, но комп должен быть включён), либо (B) бэкенд на сервере + прямой Gemini-ключ или туннель к OmniRoute (ссылка живёт 24/7). См. §9.
 - **БД:** SQLite (файл) для MVP — проще деплой; структура переносима на Postgres. На Render — persistent disk или Postgres (free), решим при деплое.
 - **Общий тип-контракт** `shared/types.ts` — чтобы фронт и бэк не разъехались.
 

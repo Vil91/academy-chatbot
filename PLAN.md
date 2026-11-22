@@ -17,9 +17,10 @@
 
 ## Этап 2 — Бэкенд-ядро (Gemini via agy, high) ⬜
 Дробим, чтобы не упереться в квоту. По одной подзадаче за вызов.
+LLM через OmniRoute (OpenAI-совместимый, env `LLM_BASE_URL`/`LLM_API_KEY`/`CHAT_MODEL`).
 - ⬜ 2.1 Скелет Express + TS + SQLite, схема БД, сид демо-данных (1 студент, расписание).
-- ⬜ 2.2 RAG: загрузка `/knowledge`, чанки, эмбеддинги в память, cosine-поиск.
-- ⬜ 2.3 `POST /api/chat`: язык → retrieve → Claude с жёстким системным промптом → `{text, sources, lang, confidence, handoff}`.
+- ⬜ 2.2 Grounding: грузить все `/knowledge/*.md` в память и вкладывать в системный промпт (KB маленькая, влезает в контекст — эмбеддинги/вектор-БД НЕ нужны; retrieval добавим позже, если KB вырастет).
+- ⬜ 2.3 `POST /api/chat`: определить язык → системный промпт с KB и запретом отвечать вне неё → OmniRoute (Gemini) → `{text, sources, lang, confidence, handoff}`.
 - ⬜ 2.4 `POST /api/lead`, `POST /api/excuse`, `GET /api/student/:code`.
 - ⬜ 2.5 `GET /api/admin/leads|handoffs|chats`.
 - ⬜ 2.6 Проверка тестами (Hydrogen/Gemini), curl-прогон эндпоинтов.
