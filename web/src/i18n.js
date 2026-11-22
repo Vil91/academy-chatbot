@@ -115,6 +115,8 @@ const dict = {
       faq: 'Հաճախ տրվող հարցեր',
       contacts: 'Կոնտակտներ',
       library: 'Գրադարան',
+      website: 'Picsart Academy կայք',
+      slack_workspaces: 'Slack աշխատանքային տարածքներ',
       student_profile: 'Ձեր պրոֆիլը',
     },
     suggestGuest: [
@@ -237,6 +239,8 @@ const dict = {
       faq: 'Частые вопросы',
       contacts: 'Контакты',
       library: 'Библиотека',
+      website: 'Сайт Picsart Academy',
+      slack_workspaces: 'Slack-воркспейсы',
       student_profile: 'Ваш профиль',
     },
     suggestGuest: [
@@ -359,6 +363,8 @@ const dict = {
       faq: 'FAQ',
       contacts: 'Contacts',
       library: 'Library',
+      website: 'Picsart Academy Website',
+      slack_workspaces: 'Slack Workspaces',
       student_profile: 'Your profile',
     },
     suggestGuest: [

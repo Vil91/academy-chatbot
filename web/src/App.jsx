@@ -3,6 +3,7 @@ import Admin from './Admin.jsx';
 import Cabinet from './Cabinet.jsx';
 import Chat from './Chat.jsx';
 import Sidebar from './Sidebar.jsx';
+import Splash from './Splash.jsx';
 import { AppProvider, useApp } from './context.jsx';
 import { LANGS } from './i18n.js';
 import { MenuIcon } from './icons.jsx';
@@ -68,6 +69,7 @@ export default function App() {
   if (path.startsWith('/admin')) return <Admin />;
   return (
     <AppProvider>
+      <Splash />
       <Shell path={path} />
     </AppProvider>
   );
