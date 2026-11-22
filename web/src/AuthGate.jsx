@@ -170,37 +170,32 @@ export default function AuthGate() {
         </div>
       </header>
 
-      <main className="landing-main">
+      <main className="landing-main landing-main-compact">
         <section className="landing-hero">
           <div className="landing-emblem">
             <span className="landing-ring" aria-hidden="true" />
-            <img className="landing-cube" src="/brand/cube-256.png" alt="Picsart Academy" width="96" height="88" />
+            <img className="landing-cube" src="/brand/cube-256.png" alt="Picsart Academy" width="84" height="78" />
           </div>
           <span className="landing-kicker">{L.authGateKicker}</span>
           <h1 className="landing-title">{L.authGateTitle}</h1>
           <p className="landing-sub">{L.authGateSubtitle}</p>
 
+          <div className="landing-pills">
+            {L.authGateFeatures.map((label) => (
+              <span key={label} className="landing-pill">
+                {label}
+              </span>
+            ))}
+          </div>
+
           <div className="landing-auth-box">
-            <span className="landing-auth-label">{L.authGateCtaLabel}</span>
             <OAuthButtons />
           </div>
-        </section>
-
-        <section className="landing-bento" aria-label="Features">
-          {L.authGateFeatures.map((f) => (
-            <article key={f.title} className="bento-card">
-              <span className="bento-ico" aria-hidden="true">
-                {f.icon}
-              </span>
-              <h3>{f.title}</h3>
-              <p>{f.desc}</p>
-            </article>
-          ))}
         </section>
       </main>
 
       <footer className="landing-foot">
-        <span>{L.mapAddress}</span>
+        <span>E Plaza, Azatutyan 24/17</span>
         <span>·</span>
         <a href="tel:+37443477447">+374 43 477447</a>
       </footer>
