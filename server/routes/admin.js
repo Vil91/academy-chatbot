@@ -1,5 +1,7 @@
 import crypto from 'node:crypto';
-import { chatCompletion } from '../llm.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { chatCompletion, llmConfig } from '../llm.js';
 import { buildEmailPrompt, parseJsonLoose } from '../prompt.js';
 import { todayYerevan } from '../profile.js';
 import { LANGS, rateLimit, str, toClientMessage } from '../util.js';
@@ -11,7 +13,7 @@ function keysMatch(provided, expected) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-export function registerAdmin(app, { db, kb, adminKey }) {
+export function registerAdmin(app, { db, kb, kbDir, adminKey }) {
   const adminLimiter = rateLimit(60);
   const requireAdmin = (req, res, next) =>
     adminLimiter(req, res, () =>
@@ -70,8 +72,12 @@ export function registerAdmin(app, { db, kb, adminKey }) {
         topSources,
         channels: { web: Math.max(0, allChats - tgChats), telegram: tgChats },
         telegramActive: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()),
+        slackActive: Boolean((process.env.SLACK_BOT_TOKEN || '').trim() && (process.env.SLACK_SIGNING_SECRET || '').trim()),
         googleAuthActive: Boolean((process.env.GOOGLE_CLIENT_ID || '').trim()),
+        githubAuthActive: Boolean((process.env.GITHUB_CLIENT_ID || '').trim() && (process.env.GITHUB_CLIENT_SECRET || '').trim()),
+        model: llmConfig().model,
       },
+      knowledge: kb.map((d) => ({ id: d.id, chars: d.text.length, text: d.text })),
       paymentProofs: all(
         `SELECT p.*, u.name AS user_name, u.code AS user_code FROM payment_proofs p JOIN users u ON u.id = p.user_id
          ORDER BY (p.status = 'pending') DESC, p.id DESC LIMIT 50`,
@@ -93,6 +99,23 @@ export function registerAdmin(app, { db, kb, adminKey }) {
     res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', 'attachment; filename="academy-leads.csv"');
     res.send(csv);
+  });
+
+  // Live Knowledge Base editor: updates in-memory KB immediately (and persists to disk when writable).
+  app.put('/api/admin/knowledge/:id', requireAdmin, (req, res) => {
+    const doc = kb.find((d) => d.id === req.params.id);
+    if (!doc) return res.status(404).json({ error: 'doc_not_found' });
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    if (text.length < 20 || text.length > 40000) return res.status(400).json({ error: 'invalid_text' });
+    doc.text = text;
+    if (kbDir) {
+      try {
+        fs.writeFileSync(path.join(kbDir, `${doc.id}.md`), `${text}\n`, 'utf8');
+      } catch (err) {
+        console.warn('[kb] disk write skipped:', err.message);
+      }
+    }
+    res.json({ ok: true, id: doc.id, chars: doc.text.length });
   });
 
   app.get('/api/admin/conversations/:id', requireAdmin, (req, res) => {

@@ -58,6 +58,8 @@ export const api = {
     setProof: (key, id, status) => request(`/api/admin/payment-proofs/${id}`, { method: 'POST', body: { status }, headers: admin(key) }),
     setHandoff: (key, id, status) => request(`/api/admin/handoffs/${id}`, { method: 'POST', body: { status }, headers: admin(key) }),
     emailDraft: (key, email) => request('/api/admin/email-draft', { method: 'POST', body: { email }, headers: admin(key) }),
+    saveKnowledge: (key, id, text) =>
+      request(`/api/admin/knowledge/${encodeURIComponent(id)}`, { method: 'PUT', body: { text }, headers: admin(key) }),
     exportLeadsCsv: async (key) => {
       const res = await fetch('/api/admin/export/leads.csv', { headers: admin(key) });
       if (!res.ok) throw new Error('export_failed');

@@ -21,7 +21,8 @@ const ADMIN_KEY = process.env.ADMIN_KEY || crypto.randomBytes(12).toString('base
 const db = openDb(process.env.DB_PATH || path.join(ROOT, 'data', 'academy.db'));
 cleanup(db);
 setInterval(() => cleanup(db), 60 * 60_000).unref();
-const kb = loadKnowledge(path.join(ROOT, 'knowledge'));
+const kbDir = path.join(ROOT, 'knowledge');
+const kb = loadKnowledge(kbDir);
 
 const app = express();
 app.set('trust proxy', 1);
@@ -62,7 +63,7 @@ app.get('/api/health', (_req, res) => {
 
 registerAuth(app, { db });
 registerChat(app, { db, kb, adminKey: ADMIN_KEY });
-registerAdmin(app, { db, kb, adminKey: ADMIN_KEY });
+registerAdmin(app, { db, kb, kbDir, adminKey: ADMIN_KEY });
 registerTelegram(app, { db, kb });
 registerSlack(app, { db, kb });
 

@@ -5,14 +5,93 @@ import { CheckIcon, CloseIcon, CopyIcon, DownloadIcon, RefreshIcon } from './ico
 import { sessionGet, sessionSet } from './storage.js';
 
 const TABS = [
+  ['analytics', 'Analytics'],
+  ['knowledge', 'Knowledge Base'],
+  ['inbox', 'Inbox assistant'],
   ['payments', 'Payments'],
   ['handoffs', 'Handoffs'],
-  ['inbox', 'Inbox assistant'],
-  ['analytics', 'Analytics'],
   ['leads', 'Leads'],
   ['absences', 'Absences'],
   ['users', 'Users'],
 ];
+
+const SAMPLE_EMAILS = [
+  {
+    label: 'HY sample',
+    text: 'Բարև ձեզ, ցանկանում եմ իմանալ AI DevHack դասընթացի արժեքը, տևողությունը և ընդունելության պայմանները։ Արդյո՞ք պետք է ունենալ սեփական նոթբուք։',
+  },
+  {
+    label: 'RU sample',
+    text: 'Здравствуйте! Подскажите, пожалуйста, сколько стоит курс AI Modern Software Developer, когда старт, и можно ли получить возврат соцвыплат?',
+  },
+  {
+    label: 'EN sample',
+    text: 'Hi Picsart Academy team! Where is the campus located, what are your office hours, and how do I apply for the Student Fellowship Program?',
+  },
+];
+
+function KnowledgeEditor({ adminKey, docs = [], onSaved }) {
+  const [activeId, setActiveId] = useState(docs[0]?.id || '');
+  const activeDoc = docs.find((d) => d.id === activeId) || docs[0];
+  const [text, setText] = useState(activeDoc?.text || '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (activeDoc) {
+      setText(activeDoc.text);
+      setMsg('');
+    }
+  }, [activeDoc?.id]);
+
+  async function save() {
+    if (!activeDoc) return;
+    setBusy(true);
+    setMsg('');
+    try {
+      await api.admin.saveKnowledge(adminKey, activeDoc.id, text);
+      setMsg('Saved & applied live to Web + Telegram bot!');
+      onSaved?.();
+    } catch {
+      setMsg('Failed to save document.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!docs.length) return <p className="admin-empty">No knowledge files loaded.</p>;
+
+  return (
+    <div className="kb-editor">
+      <div className="kb-sidebar">
+        {docs.map((d) => (
+          <button
+            key={d.id}
+            type="button"
+            className={`kb-item ${d.id === activeDoc?.id ? 'on' : ''}`}
+            onClick={() => setActiveId(d.id)}
+          >
+            <b>{d.id}.md</b>
+            <small>{(d.chars / 1024).toFixed(1)} KB</small>
+          </button>
+        ))}
+      </div>
+      <div className="kb-main">
+        <div className="kb-head">
+          <div>
+            <h3>{activeDoc?.id}.md</h3>
+            <p className="muted small">Edits take effect immediately for all Web & Telegram chats — no redeploy needed.</p>
+          </div>
+          <button type="button" className="btn btn-brand btn-sm" onClick={save} disabled={busy || text.trim().length < 20}>
+            {busy ? 'Saving…' : 'Save & Apply Live'}
+          </button>
+        </div>
+        {msg && <p className="kb-notice">{msg}</p>}
+        <textarea className="kb-textarea" rows={16} value={text} onChange={(e) => setText(e.target.value)} />
+      </div>
+    </div>
+  );
+}
 
 function Analytics({ analytics }) {
   if (!analytics) return <p className="admin-empty">No analytics yet.</p>;
@@ -196,6 +275,14 @@ function Inbox({ adminKey }) {
   return (
     <div className="inbox">
       <form className="form" onSubmit={run}>
+        <div className="inbox-samples">
+          <span className="muted small">Try sample:</span>
+          {SAMPLE_EMAILS.map((s) => (
+            <button key={s.label} type="button" className="btn btn-ghost btn-sm" onClick={() => setEmail(s.text)}>
+              {s.label}
+            </button>
+          ))}
+        </div>
         <label className="field">
           <span>Student email</span>
           <textarea
@@ -248,7 +335,7 @@ function Inbox({ adminKey }) {
 export default function Admin() {
   const [key, setKey] = useState(() => sessionGet('ac_admin') || '');
   const [data, setData] = useState(null);
-  const [tab, setTab] = useState('payments');
+  const [tab, setTab] = useState('analytics');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [openConvo, setOpenConvo] = useState(null);
@@ -286,69 +373,85 @@ export default function Admin() {
 
   if (!data) {
     return (
-      <div className="admin admin-login">
-        <img src="/brand/cube-256.png" alt="" width="64" height="59" />
-        <h1>Coordinator panel</h1>
-        <p className="muted">Academy Concierge · Picsart Academy</p>
-        <form
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            load();
-          }}
-        >
-          <label className="field">
-            <span>Admin key</span>
-            <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" />
-          </label>
-          {error && <p className="form-error">{error}</p>}
-          <button className="btn btn-brand btn-block" disabled={busy || !key}>
-            Open
-          </button>
-        </form>
-        <a className="admin-back" href="/">
-          ← Back to the chat
-        </a>
+      <div className="admin-login-shell">
+        <div className="admin-login-card">
+          <div className="auth-gate-glow" aria-hidden="true" />
+          <img src="/brand/cube-256.png" alt="Picsart Academy" width="72" height="66" />
+          <span className="landing-kicker">PICSART ACADEMY · ADMIN</span>
+          <h1>Coordinator panel</h1>
+          <p className="muted small">Live analytics, knowledge base, receipts, leads & Inbox Assistant</p>
+          <form
+            className="form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              load();
+            }}
+          >
+            <label className="field">
+              <span>Admin key</span>
+              <input type="password" value={key} onChange={(e) => setKey(e.target.value)} autoComplete="off" placeholder="Enter admin key…" />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button className="btn btn-brand btn-block" disabled={busy || !key}>
+              {busy ? 'Signing in…' : 'Open dashboard'}
+            </button>
+          </form>
+          <a className="admin-back" href="/">
+            ← Back to the chat
+          </a>
+        </div>
       </div>
     );
   }
 
   const c = data.counts;
+  const a = data.analytics || {};
   const tiles = [
-    ['Pending payments', c.pendingPayments, 'payments', c.pendingPayments > 0],
-    ['Open handoffs', c.openHandoffs, 'handoffs', c.openHandoffs > 0],
-    ['Leads', c.leads, 'leads'],
-    ['Absence notes', c.excuses, 'absences'],
-    ['Students', c.users, 'users'],
-    ['Conversations', c.conversations],
+    ['Questions answered', c.questions, 'analytics', false, 'accent-magenta'],
+    ['Pending payments', c.pendingPayments, 'payments', c.pendingPayments > 0, 'accent-amber'],
+    ['Open handoffs', c.openHandoffs, 'handoffs', c.openHandoffs > 0, 'accent-aqua'],
+    ['Leads', c.leads, 'leads', false, 'accent-emerald'],
+    ['Absence notes', c.excuses, 'absences', false, 'accent-indigo'],
+    ['Knowledge docs', (data.knowledge || []).length, 'knowledge', false, 'accent-magenta'],
   ];
 
   return (
     <div className="admin">
-      <header className="admin-top">
-        <div className="admin-brand">
-          <img src="/brand/cube-128.png" alt="" width="40" height="37" />
+      <header className="admin-hero">
+        <div className="admin-hero-left">
+          <img src="/brand/cube-128.png" alt="" width="48" height="44" />
           <div>
-            <h1>Coordinator panel</h1>
-            <p className="muted small">Academy Concierge · {c.demoSessions} demo sessions · {c.questions} questions asked</p>
+            <div className="admin-hero-title">
+              <h1>Coordinator Panel</h1>
+              <span className="live-pill">
+                <i /> LIVE · {a.model || 'Gemini'}
+              </span>
+            </div>
+            <div className="admin-hero-badges">
+              <span className="hero-badge on">Web Chat</span>
+              <span className={`hero-badge ${a.telegramActive ? 'on' : ''}`}>Telegram {a.telegramActive ? 'ON' : 'Ready'}</span>
+              <span className={`hero-badge ${a.slackActive ? 'on' : ''}`}>Slack {a.slackActive ? 'ON' : 'Ready'}</span>
+              <span className={`hero-badge ${a.googleAuthActive ? 'on' : ''}`}>Google OAuth</span>
+              <span className={`hero-badge ${a.githubAuthActive ? 'on' : ''}`}>GitHub OAuth</span>
+            </div>
           </div>
         </div>
         <div className="admin-actions">
-          <a className="btn btn-ghost" href="/">
+          <a className="btn btn-hero-ghost" href="/">
             Open chat
           </a>
-          <button type="button" className="btn btn-ghost" onClick={() => load()} disabled={busy}>
+          <button type="button" className="btn btn-hero-ghost" onClick={() => load()} disabled={busy}>
             <RefreshIcon /> Refresh
           </button>
         </div>
       </header>
 
       <div className="tiles">
-        {tiles.map(([label, value, target, hot]) => (
+        {tiles.map(([label, value, target, hot, accent]) => (
           <button
             type="button"
             key={label}
-            className={`tile ${hot ? 'tile-hot' : ''} ${target === tab ? 'on' : ''}`}
+            className={`tile ${accent} ${hot ? 'tile-hot' : ''} ${target === tab ? 'on' : ''}`}
             onClick={() => target && setTab(target)}
             disabled={!target}
           >
@@ -439,6 +542,8 @@ export default function Admin() {
       {tab === 'inbox' && <Inbox adminKey={key} />}
 
       {tab === 'analytics' && <Analytics analytics={data.analytics} />}
+
+      {tab === 'knowledge' && <KnowledgeEditor adminKey={key} docs={data.knowledge} onSaved={() => load()} />}
 
       {tab === 'leads' && (
         <>
