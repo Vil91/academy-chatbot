@@ -238,34 +238,72 @@ const Composer = forwardRef(function Composer({ busy, onSend }, ref) {
   const fileRef = useRef(null);
   const keyRef = useRef(0);
   const recRef = useRef(null);
+  const recSessionRef = useRef(0);
   const speechOk = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 
-  useEffect(() => () => recRef.current?.stop(), []);
+  function stopVoice() {
+    recSessionRef.current += 1;
+    const rec = recRef.current;
+    recRef.current = null;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      try {
+        rec.abort();
+      } catch {
+        try {
+          rec.stop();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    setListening(false);
+  }
+
+  useEffect(() => () => stopVoice(), []);
+  useEffect(() => {
+    if (busy) stopVoice();
+  }, [busy]);
+  useEffect(() => {
+    stopVoice();
+  }, [lang]);
 
   function toggleVoice() {
     if (!speechOk) return;
-    if (listening) {
-      recRef.current?.stop();
-      setListening(false);
+    if (listening || recRef.current) {
+      stopVoice();
       return;
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const rec = new SR();
+    const session = ++recSessionRef.current;
     rec.lang = SPEECH_LANG[lang] || 'hy-AM';
     rec.interimResults = true;
     rec.continuous = false;
     const base = text.trim() ? `${text.trim()} ` : '';
     rec.onresult = (e) => {
+      if (session !== recSessionRef.current) return;
       const spoken = [...e.results].map((r) => r[0].transcript).join('');
       setText((base + spoken).slice(0, 1000));
     };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
+    rec.onerror = () => {
+      if (session !== recSessionRef.current) return;
+      recRef.current = null;
+      setListening(false);
+    };
+    rec.onend = () => {
+      if (session !== recSessionRef.current) return;
+      recRef.current = null;
+      setListening(false);
+    };
     recRef.current = rec;
     setListening(true);
     try {
       rec.start();
     } catch {
+      recRef.current = null;
       setListening(false);
     }
   }
@@ -306,6 +344,7 @@ const Composer = forwardRef(function Composer({ busy, onSend }, ref) {
   function submit(e) {
     e?.preventDefault();
     if (!canSend) return;
+    stopVoice();
     onSend(
       text.trim(),
       files.map(({ id, name, mime, preview }) => ({ id, name, mime, preview })),

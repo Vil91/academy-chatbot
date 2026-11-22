@@ -1460,10 +1460,12 @@ img {
 }
 
 .card {
+  min-width: 0;
   padding: 18px 20px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: var(--surface);
+  overflow: hidden;
 }
 
 .card-schedule {
@@ -1472,6 +1474,7 @@ img {
 
 .card-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
@@ -1533,8 +1536,9 @@ img {
 .proofs li,
 .excuses li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   padding: 10px 0;
   border-top: 1px solid var(--line);
 }
@@ -1546,17 +1550,26 @@ img {
 }
 
 .pay-month {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 88px;
   font-weight: 700;
 }
 
+.pay-list li .link-btn {
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .pill {
-  flex: none;
+  flex: 0 1 auto;
+  max-width: 100%;
   padding: 3px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.3;
+  white-space: normal;
+  text-align: center;
 }
 
 .pill-paid {
@@ -2507,5 +2520,66 @@ td {
 @media (max-width: 720px) {
   .analytics-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .card-head {
+    align-items: flex-start;
+  }
+
+  .card-head .btn {
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  .profile {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .profile-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .chip {
+    max-width: 100%;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.35;
+  }
+
+  .bubble-user,
+  .bubble-bot,
+  .suggestion,
+  .excuses li,
+  .proofs li > div {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .excuses b {
+    min-width: 0;
+  }
+
+  .topbar {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .topbar-title {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .admin-head {
+    flex-wrap: wrap;
+    gap: 10px;
   }
 }
