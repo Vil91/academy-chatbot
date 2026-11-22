@@ -180,14 +180,6 @@ export default function AuthGate() {
           <h1 className="landing-title">{L.authGateTitle}</h1>
           <p className="landing-sub">{L.authGateSubtitle}</p>
 
-          <div className="landing-pills">
-            {L.authGateFeatures.map((label) => (
-              <span key={label} className="landing-pill">
-                {label}
-              </span>
-            ))}
-          </div>
-
           <div className="landing-auth-box">
             <OAuthButtons />
           </div>
