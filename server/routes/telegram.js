@@ -94,6 +94,15 @@ export function registerTelegram(app, { db, kb }) {
 
       const replyText = (answer || 'Извините, не удалось сформировать ответ.').replace(/\*\*(.+?)\*\*/g, '$1');
       await tgCall(token, 'sendMessage', { chat_id: chatId, text: replyText });
+      if (meta.action === 'map_card') {
+        await tgCall(token, 'sendVenue', {
+          chat_id: chatId,
+          latitude: 40.20776,
+          longitude: 44.5298105,
+          title: 'Picsart Academy',
+          address: 'Azatutyan Ave 24/17, E Plaza, Yerevan',
+        });
+      }
     } catch (err) {
       console.error('[telegram] error:', err.message);
       await tgCall(token, 'sendMessage', {

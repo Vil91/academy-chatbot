@@ -73,6 +73,50 @@ function Attachments({ items }) {
   );
 }
 
+function MapCard({ M }) {
+  const lat = '40.20776';
+  const lng = '44.5298105';
+  return (
+    <div className="map-card">
+      <div className="map-frame-wrap">
+        <iframe
+          title="Picsart Academy Map"
+          src={`https://www.google.com/maps?q=${lat},${lng}&z=16&output=embed`}
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
+      </div>
+      <div className="map-body">
+        <div className="map-info">
+          <strong>Picsart Academy · E Plaza</strong>
+          <span>{M.mapAddress}</span>
+        </div>
+        <div className="map-actions">
+          <a
+            className="btn btn-brand btn-sm"
+            href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Google Maps
+          </a>
+          <a
+            className="btn btn-dark btn-sm"
+            href={`https://yandex.com/maps/?rtext=~${lat},${lng}&rtt=auto`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Yandex Maps
+          </a>
+          <a className="btn btn-ghost btn-sm" href="tel:+37443477447">
+            +374 43 477447
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BotMessage({ m, conversationId }) {
   const { lang, user, openModal } = useApp();
   const M = t(m.meta?.lang || lang); // labels follow the language of the answer
@@ -122,6 +166,7 @@ function BotMessage({ m, conversationId }) {
             {user ? M.excuseCta : M.signInCta}
           </button>
         )}
+        {meta.action === 'map_card' && <MapCard M={M} />}
         {meta.sources?.length > 0 && (
           <div className="sources">
             {meta.sources.map((s) => (

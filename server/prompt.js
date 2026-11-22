@@ -54,6 +54,7 @@ export function buildSystemPrompt({ kb, profile, uiLang, langHint, today }) {
 # Actions
 - "action": "lead_form" when an applicant wants to enroll, apply, take the entry test or book an interview.
 - "action": "excuse_form" when a signed-in student reports an absence or lateness, or asks how to file an excuse.
+- "action": "map_card" when the user asks how to get to Picsart Academy, where the campus is located, directions, address or map.
 - Otherwise "action": null.
 
 # Style
@@ -65,7 +66,7 @@ export function buildSystemPrompt({ kb, profile, uiLang, langHint, today }) {
 
 # Output format
 First write the reply for the user. Then, on a new line, write ${META_MARK} immediately followed by one JSON object on a single line:
-${META_MARK}{"lang":"hy|ru|en","sources":[ids of the documents you used, from: ${ids.join(', ')}],"confidence":0.0-1.0,"handoff":true|false,"action":"lead_form"|"excuse_form"|null,"payment":null|{"amount":number|null,"currency":string|null,"date":"YYYY-MM-DD"|null,"month":"YYYY-MM"|null,"payer":string|null,"reference":string|null}}
+${META_MARK}{"lang":"hy|ru|en","sources":[ids of the documents you used, from: ${ids.join(', ')}],"confidence":0.0-1.0,"handoff":true|false,"action":"lead_form"|"excuse_form"|"map_card"|null,"payment":null|{"amount":number|null,"currency":string|null,"date":"YYYY-MM-DD"|null,"month":"YYYY-MM"|null,"payer":string|null,"reference":string|null}}
 Never mention this marker or the metadata in the reply text.
 
 # KNOWLEDGE BASE
@@ -119,7 +120,7 @@ export function normalizePayment(p) {
 export function parseMeta(metaRaw, { fallbackLang, allowedSources, signedIn }) {
   const obj = parseJsonLoose(metaRaw) || {};
   const confidence = Number(obj.confidence);
-  let action = ['lead_form', 'excuse_form'].includes(obj.action) ? obj.action : null;
+  let action = ['lead_form', 'excuse_form', 'map_card'].includes(obj.action) ? obj.action : null;
   if (action === 'excuse_form' && !signedIn) action = null;
   return {
     lang: LANGS.includes(obj.lang) ? obj.lang : fallbackLang,
