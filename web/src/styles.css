@@ -1050,13 +1050,8 @@ td {
   }
 }
 
-@media (max-width: 380px) {
-  .brand-name {
-    font-size: 16px;
-  }
-
-  .mark {
-    width: 34px;
-    height: 34px;
+@media (max-width: 440px) {
+  .brand-text {
+    display: none;
   }
 }

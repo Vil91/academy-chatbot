@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,7 +10,8 @@ import { buildSystemPrompt, parseModelJson, detectLang } from './prompt.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8080);
-const ADMIN_KEY = process.env.ADMIN_KEY || 'demo-admin';
+// No fixed default: without ADMIN_KEY a random key is made at start and printed to the log.
+const ADMIN_KEY = process.env.ADMIN_KEY || crypto.randomBytes(12).toString('base64url');
 
 const db = openDb(process.env.DB_PATH || path.join(ROOT, 'data', 'academy.db'));
 const kb = loadKnowledge(path.join(ROOT, 'knowledge'));
@@ -167,4 +169,5 @@ app.use((err, _req, res, _next) => {
 app.listen(PORT, () => {
   const { model, baseUrl } = llmConfig();
   console.log(`Academy Concierge on :${PORT} · model ${model} via ${baseUrl} · ${kb.length} docs`);
+  if (!process.env.ADMIN_KEY) console.log(`Admin key (generated for this run): ${ADMIN_KEY}`);
 });

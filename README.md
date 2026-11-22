@@ -19,7 +19,7 @@ It answers in **Armenian, Russian and English** (Armenian typed in Latin letters
 ## Demo access
 
 - Student code: **`DEMO-STUDENT`** (made-up profile, for the demo)
-- Coordinator panel: `/admin` — the admin key is the `ADMIN_KEY` value in the hosting settings.
+- Coordinator panel: `/admin` — the admin key is the `ADMIN_KEY` value in the hosting settings (without it, the server makes a random key at start and prints it to the log).
 
 ## How it is built
 
