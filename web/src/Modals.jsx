@@ -1,23 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
-import { PROGRAMS } from './i18n.js';
-import { getSessionId } from './storage.js';
+import { useApp } from './context.jsx';
+import { LEAD_PROGRAMS, PROGRAMS } from './i18n.js';
 import { CheckIcon, CloseIcon } from './icons.jsx';
 
-function Modal({ title, closeLabel, onClose, children }) {
-  const dialogRef = useRef(null);
+export function Modal({ title, onClose, children, wide = false }) {
+  const { L } = useApp();
+  const ref = useRef(null);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
   useEffect(() => {
     const previous = document.activeElement;
-    const first =
-      dialogRef.current?.querySelector('input, textarea, select') ||
-      dialogRef.current?.querySelector('button');
-    first?.focus();
-    const onKey = (e) => {
-      if (e.key === 'Escape') closeRef.current();
-    };
+    (ref.current?.querySelector('input, textarea, select') || ref.current?.querySelector('button'))?.focus();
+    const onKey = (e) => e.key === 'Escape' && closeRef.current();
     document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('keydown', onKey);
@@ -26,16 +22,11 @@ function Modal({ title, closeLabel, onClose, children }) {
   }, []);
 
   return (
-    <div
-      className="backdrop"
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" ref={dialogRef}>
+    <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className={`dialog ${wide ? 'dialog-wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby="dialog-title" ref={ref}>
         <div className="dialog-head">
           <h2 id="dialog-title">{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label={closeLabel}>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label={L.close}>
             <CloseIcon />
           </button>
         </div>
@@ -45,79 +36,142 @@ function Modal({ title, closeLabel, onClose, children }) {
   );
 }
 
-function Done({ text, closeLabel, onClose }) {
+function Done({ text, onClose }) {
+  const { L } = useApp();
   return (
     <div className="done">
       <span className="done-icon">
         <CheckIcon width={22} height={22} />
       </span>
       <p>{text}</p>
-      <div className="actions">
-        <button type="button" className="btn btn-primary" onClick={onClose}>
-          {closeLabel}
-        </button>
-      </div>
+      <button type="button" className="btn btn-brand" onClick={onClose}>
+        {L.close}
+      </button>
     </div>
   );
 }
 
-export function StudentLogin({ L, onClose, onSignedIn }) {
-  const [code, setCode] = useState('');
+const FormError = ({ children }) =>
+  children ? (
+    <p className="form-error" role="alert">
+      {children}
+    </p>
+  ) : null;
+
+export function AuthModal({ initialTab = 'signin', onClose }) {
+  const { L, lang, signedIn } = useApp();
+  const [tab, setTab] = useState(initialTab);
+  const [form, setForm] = useState({ name: '', email: '', password: '', program: PROGRAMS[0] });
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(null);
+  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const fail = (err) => setError(L.authErrors[err.code] || L.error);
 
   async function submit(e) {
     e.preventDefault();
-    if (!code.trim()) return;
-    setBusy(true);
+    setBusy('form');
     setError('');
     try {
-      const { student } = await api.login(code.trim().toUpperCase());
-      onSignedIn(student);
+      const { user } =
+        tab === 'signin'
+          ? await api.login({ email: form.email, password: form.password })
+          : await api.signup({ ...form, lang });
+      signedIn(user);
     } catch (err) {
-      setError(err.status === 404 ? L.codeNotFound : L.error);
+      fail(err);
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  }
+
+  async function demo() {
+    setBusy('demo');
+    setError('');
+    try {
+      signedIn((await api.demo(lang)).user);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(null);
     }
   }
 
   return (
-    <Modal title={L.studentSignIn} closeLabel={L.close} onClose={onClose}>
-      <form className="form" onSubmit={submit}>
-        <label className="field">
-          <span>{L.codeLabel}</span>
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="DEMO-STUDENT"
-            autoComplete="off"
-            autoCapitalize="characters"
-            spellCheck={false}
-          />
-        </label>
-        <p className="hint">
-          {L.codeHint}{' '}
-          <button type="button" className="link" onClick={() => setCode('DEMO-STUDENT')}>
-            DEMO-STUDENT
+    <Modal title={tab === 'signin' ? L.signIn : L.signUp} onClose={onClose}>
+      <button type="button" className="demo-card" onClick={demo} disabled={busy !== null}>
+        <img src="/brand/cube-128.png" alt="" width="40" height="37" />
+        <span>
+          <strong>{L.tryDemo}</strong>
+          <small>{L.demoHint}</small>
+        </span>
+      </button>
+
+      <div className="divider">
+        <span>{L.or}</span>
+      </div>
+
+      <div className="tabs" role="tablist">
+        {['signin', 'signup'].map((key) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={tab === key}
+            className={tab === key ? 'on' : ''}
+            onClick={() => {
+              setTab(key);
+              setError('');
+            }}
+          >
+            {key === 'signin' ? L.signIn : L.signUp}
           </button>
-        </p>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
+        ))}
+      </div>
+
+      <form className="form" onSubmit={submit} noValidate>
+        {tab === 'signup' && (
+          <label className="field">
+            <span>{L.name}</span>
+            <input value={form.name} onChange={set('name')} autoComplete="name" maxLength={80} />
+          </label>
         )}
-        <div className="actions">
-          <button className="btn btn-primary" disabled={busy || !code.trim()}>
-            {L.signIn}
-          </button>
-        </div>
+        <label className="field">
+          <span>{L.email}</span>
+          <input type="email" value={form.email} onChange={set('email')} autoComplete="email" maxLength={120} />
+        </label>
+        <label className="field">
+          <span>{L.password}</span>
+          <input
+            type="password"
+            value={form.password}
+            onChange={set('password')}
+            autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
+            maxLength={200}
+          />
+          {tab === 'signup' && <small className="field-hint">{L.passwordHint}</small>}
+        </label>
+        {tab === 'signup' && (
+          <label className="field">
+            <span>{L.program}</span>
+            <select value={form.program} onChange={set('program')}>
+              {PROGRAMS.map((p) => (
+                <option key={p}>{p}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <FormError>{error}</FormError>
+        <button className="btn btn-dark btn-block" disabled={busy !== null}>
+          {tab === 'signin' ? L.signIn : L.createAccount}
+        </button>
       </form>
     </Modal>
   );
 }
 
-export function LeadForm({ L, lang, onClose }) {
-  const [form, setForm] = useState({ name: '', contact: '', interest: PROGRAMS[0], preferredTime: L.timeOptions[0] });
+export function LeadForm({ conversationId, onClose }) {
+  const { L, lang } = useApp();
+  const [form, setForm] = useState({ name: '', contact: '', interest: LEAD_PROGRAMS[0], preferredTime: L.timeOptions[0] });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -125,14 +179,11 @@ export function LeadForm({ L, lang, onClose }) {
 
   async function submit(e) {
     e.preventDefault();
-    if (form.name.trim().length < 2 || form.contact.trim().length < 3) {
-      setError(L.required);
-      return;
-    }
+    if (form.name.trim().length < 2 || form.contact.trim().length < 3) return setError(L.required);
     setBusy(true);
     setError('');
     try {
-      await api.lead({ ...form, lang, sessionId: getSessionId() });
+      await api.lead({ ...form, lang, conversationId });
       setDone(true);
     } catch {
       setError(L.error);
@@ -142,9 +193,9 @@ export function LeadForm({ L, lang, onClose }) {
   }
 
   return (
-    <Modal title={L.leadTitle} closeLabel={L.close} onClose={onClose}>
+    <Modal title={L.leadTitle} onClose={onClose}>
       {done ? (
-        <Done text={L.leadDone} closeLabel={L.close} onClose={onClose} />
+        <Done text={L.leadDone} onClose={onClose} />
       ) : (
         <form className="form" onSubmit={submit} noValidate>
           <p className="dialog-intro">{L.leadIntro}</p>
@@ -160,7 +211,7 @@ export function LeadForm({ L, lang, onClose }) {
             <label className="field">
               <span>{L.program}</span>
               <select value={form.interest} onChange={set('interest')}>
-                {PROGRAMS.map((p) => (
+                {LEAD_PROGRAMS.map((p) => (
                   <option key={p}>{p}</option>
                 ))}
                 <option value={L.other}>{L.other}</option>
@@ -175,16 +226,10 @@ export function LeadForm({ L, lang, onClose }) {
               </select>
             </label>
           </div>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="actions">
-            <button className="btn btn-primary" disabled={busy}>
-              {L.sendRequest}
-            </button>
-          </div>
+          <FormError>{error}</FormError>
+          <button className="btn btn-brand btn-block" disabled={busy}>
+            {L.sendRequest}
+          </button>
         </form>
       )}
     </Modal>
@@ -194,11 +239,11 @@ export function LeadForm({ L, lang, onClose }) {
 function tomorrow() {
   const d = new Date();
   d.setDate(d.getDate() + 1);
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function ExcuseForm({ L, student, onClose }) {
+export function ExcuseForm({ onClose, onDone }) {
+  const { L } = useApp();
   const [date, setDate] = useState(tomorrow);
   const [reason, setReason] = useState('');
   const [error, setError] = useState('');
@@ -207,15 +252,13 @@ export function ExcuseForm({ L, student, onClose }) {
 
   async function submit(e) {
     e.preventDefault();
-    if (!date || reason.trim().length < 3) {
-      setError(L.required);
-      return;
-    }
+    if (!date || reason.trim().length < 3) return setError(L.required);
     setBusy(true);
     setError('');
     try {
-      await api.excuse({ code: student.code, date, reason });
+      await api.excuse({ date, reason });
       setDone(true);
+      onDone?.();
     } catch {
       setError(L.error);
     } finally {
@@ -224,9 +267,9 @@ export function ExcuseForm({ L, student, onClose }) {
   }
 
   return (
-    <Modal title={L.excuseTitle} closeLabel={L.close} onClose={onClose}>
+    <Modal title={L.excuseTitle} onClose={onClose}>
       {done ? (
-        <Done text={L.excuseDone} closeLabel={L.close} onClose={onClose} />
+        <Done text={L.excuseDone} onClose={onClose} />
       ) : (
         <form className="form" onSubmit={submit} noValidate>
           <p className="dialog-intro">{L.excuseIntro}</p>
@@ -238,18 +281,23 @@ export function ExcuseForm({ L, student, onClose }) {
             <span>{L.reason} *</span>
             <textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} />
           </label>
-          {error && (
-            <p className="form-error" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="actions">
-            <button className="btn btn-primary" disabled={busy}>
-              {L.send}
-            </button>
-          </div>
+          <FormError>{error}</FormError>
+          <button className="btn btn-brand btn-block" disabled={busy}>
+            {L.send}
+          </button>
         </form>
       )}
     </Modal>
   );
+}
+
+// Renders whichever dialog is open in the app state.
+export function Modals() {
+  const { modal, closeModal } = useApp();
+  if (!modal) return null;
+  const { name, props } = modal;
+  if (name === 'auth') return <AuthModal {...props} onClose={closeModal} />;
+  if (name === 'lead') return <LeadForm {...props} onClose={closeModal} />;
+  if (name === 'excuse') return <ExcuseForm {...props} onClose={closeModal} />;
+  return null;
 }

@@ -39,14 +39,16 @@ export function sessionSet(key, value) {
   }
 }
 
-let memorySessionId = null;
+// A guest is recognised by a random id kept in this browser; their chats belong to it
+// until they sign in, when the server moves them into the account.
+let memoryDeviceId = null;
 
-export function getSessionId(reset = false) {
-  let id = reset ? null : sessionGet('ac_session') || memorySessionId;
+export function getDeviceId() {
+  let id = load('ac_device') || memoryDeviceId;
   if (!id) {
     id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    sessionSet('ac_session', id);
-    memorySessionId = id;
+    save('ac_device', id);
+    memoryDeviceId = id;
   }
   return id;
 }

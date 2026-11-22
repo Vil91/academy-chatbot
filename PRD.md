@@ -2,7 +2,7 @@
 
 **Проект:** Project 14, Student Fellowship Program (Picsart Academy / Code Republic).
 **Автор-исполнитель:** Vilen Gyurjyan.
-**Дедлайн сдачи:** вс 23.11.2026, 24:00 — ссылка на деплой на `vardan.grigoryan@picsart.com`.
+**Дедлайн сдачи:** вс 22.11.2026, 24:00 (встреча — пн 23.11, 15:00, Ada Lovelace) — ссылка на деплой на `vardan.grigoryan@picsart.com`.
 **Статус:** PRD / планирование. Координатор — Claude (Opus). Бэкенд — Gemini (agy).
 
 ---
