@@ -47,7 +47,7 @@ export default function Cabinet() {
       <div className="page page-center">
         <img src="/brand/cube-256.png" alt="" width="84" height="78" />
         <h1>{L.cabinet}</h1>
-        <p className="muted">{L.demoHint}</p>
+        <p className="muted">{L.cabinetSignInHint}</p>
         <button type="button" className="btn btn-brand" onClick={() => openModal('auth')}>
           {L.signIn}
         </button>
@@ -56,7 +56,8 @@ export default function Cabinet() {
   }
 
   const p = (data?.user || user).profile;
-  const name = p.name?.[lang] || user.name;
+  const pick = (v) => (v && typeof v === 'object' ? v[lang] || v.en || Object.values(v)[0] : v);
+  const name = pick(p.name) || user.name;
   const att = p.attendance || {};
   const proofs = data?.paymentProofs || [];
   const pendingFor = (month) => proofs.find((x) => x.month === month && x.status === 'pending');
@@ -68,7 +69,7 @@ export default function Cabinet() {
     setUpload((u) => ({ ...u, busy: true, error: '' }));
     try {
       const prepared = await prepareFile(file);
-      if (!prepared.type.startsWith('image/')) throw Object.assign(new Error(), { code: 'unsupported_file' });
+      if (!prepared.type.startsWith('image/')) throw Object.assign(new Error(), { code: 'image_only' });
       const saved = await api.upload(prepared);
       await api.paymentProof({ attachmentId: saved.id, month: upload.month });
       await load();
@@ -84,8 +85,7 @@ export default function Cabinet() {
   }
 
   const schedule = [...(p.schedule || [])].sort((a, b) => WEEK_ORDER.indexOf(a.day) - WEEK_ORDER.indexOf(b.day));
-  const now = new Date();
-  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const thisMonth = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Yerevan', year: 'numeric', month: '2-digit' }).format(new Date());
   const current = p.payments?.find((x) => x.month === thisMonth) || p.payments?.at(-1);
 
   return (
@@ -99,7 +99,7 @@ export default function Cabinet() {
               {user.isDemo && <span className="badge">{L.demo}</span>}
             </h1>
             <p>
-              {p.program} · {p.group}
+              {p.program} · {pick(p.group)}
             </p>
             <p className="muted small">
               {L.code}: <b>{user.code}</b>
@@ -132,7 +132,7 @@ export default function Cabinet() {
           <div className="stat-card">
             <span className="stat-label">{L.nextExam}</span>
             <strong>{p.nextExam ? fmtDate(p.nextExam.date, lang) : '—'}</strong>
-            <span className="stat-sub">{p.nextExam ? p.nextExam.topic : L.noExam}</span>
+            <span className="stat-sub">{p.nextExam ? pick(p.nextExam.topic) : L.noExam}</span>
           </div>
           {current && (
             <div
@@ -159,8 +159,8 @@ export default function Cabinet() {
                   <span className="sched-day">{L.weekdays[s.day] || s.day}</span>
                   <span className="sched-time">{s.time}</span>
                   <span className="sched-topic">
-                    {s.topic}
-                    <small>{s.room}</small>
+                    {pick(s.topic)}
+                    <small>{pick(s.room)}</small>
                   </span>
                 </li>
               ))}

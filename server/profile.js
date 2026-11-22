@@ -3,26 +3,34 @@
 
 export const PROGRAMS = ['AI-Native Product Engineering', 'Student Fellowship Program'];
 
-const ROOM_1 = 'Ada Lovelace (1st floor)';
-const ROOM_2 = 'Claude Shannon (2nd floor)';
+const ROOM_1 = {
+  hy: 'Ada Lovelace (1-ին հարկ)',
+  ru: 'Ada Lovelace (1-й этаж)',
+  en: 'Ada Lovelace (1st floor)',
+};
+const ROOM_2 = {
+  hy: 'Claude Shannon (2-րդ հարկ)',
+  ru: 'Claude Shannon (2-й этаж)',
+  en: 'Claude Shannon (2nd floor)',
+};
 
 const PROGRAM_DATA = {
   'AI-Native Product Engineering': {
-    group: 'Group A',
+    group: { hy: 'Խումբ A', ru: 'Группа A', en: 'Group A' },
     schedule: [
-      { day: 'Monday', time: '16:00–19:00', room: ROOM_1, topic: 'Databases: indexing' },
-      { day: 'Tuesday', time: '16:00–19:00', room: ROOM_1, topic: 'SQL vs NoSQL' },
-      { day: 'Wednesday', time: '16:00–19:00', room: ROOM_1, topic: 'Data modelling practice' },
-      { day: 'Thursday', time: '16:00–19:00', room: ROOM_1, topic: 'Project: deploy a full web product' },
-      { day: 'Friday', time: '17:00–18:00', room: ROOM_2, topic: 'Mastering English' },
+      { day: 'Monday', time: '16:00–19:00', room: ROOM_1, topic: { hy: 'Տվյալների բազաներ. ինդեքսավորում', ru: 'Базы данных: индексация', en: 'Databases: indexing' } },
+      { day: 'Tuesday', time: '16:00–19:00', room: ROOM_1, topic: { hy: 'SQL և NoSQL համեմատություն', ru: 'SQL и NoSQL', en: 'SQL vs NoSQL' } },
+      { day: 'Wednesday', time: '16:00–19:00', room: ROOM_1, topic: { hy: 'Տվյալների մոդելավորման պրակտիկա', ru: 'Практика моделирования данных', en: 'Data modelling practice' } },
+      { day: 'Thursday', time: '16:00–19:00', room: ROOM_1, topic: { hy: 'Նախագիծ. վեբ պրոդուկտի դեպլոյ', ru: 'Проект: деплой веб-продукта', en: 'Project: deploy a full web product' } },
+      { day: 'Friday', time: '17:00–18:00', room: ROOM_2, topic: { hy: 'Mastering English', ru: 'Mastering English', en: 'Mastering English' } },
     ],
-    examTopic: 'SQL and NoSQL databases',
+    examTopic: { hy: 'SQL և NoSQL տվյալների բազաներ', ru: 'Реляционные и NoSQL базы данных', en: 'SQL and NoSQL databases' },
   },
   'Student Fellowship Program': {
-    group: 'Developers track',
+    group: { hy: 'Developers ուղղություն', ru: 'Направление Developers', en: 'Developers track' },
     schedule: [
-      { day: 'Monday', time: '15:00–16:00', room: ROOM_1, topic: 'Team meeting' },
-      { day: 'Wednesday', time: '15:00–16:00', room: ROOM_1, topic: 'Team meeting' },
+      { day: 'Monday', time: '15:00–16:00', room: ROOM_1, topic: { hy: 'Թիմային հանդիպում', ru: 'Командная встреча', en: 'Team meeting' } },
+      { day: 'Wednesday', time: '15:00–16:00', room: ROOM_1, topic: { hy: 'Թիմային հանդիպում', ru: 'Командная встреча', en: 'Team meeting' } },
     ],
     examTopic: null,
   },

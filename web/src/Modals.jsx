@@ -105,7 +105,7 @@ export function AuthModal({ initialTab = 'signin', onClose }) {
         theme: 'outline',
         size: 'large',
         shape: 'pill',
-        width: 340,
+        width: Math.min(340, googleBtnRef.current.clientWidth || 300),
         text: 'continue_with',
       });
     };

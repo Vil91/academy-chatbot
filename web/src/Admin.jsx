@@ -159,7 +159,10 @@ function Conversation({ adminKey, id, onClose }) {
           {data?.messages?.map((m) => (
             <div key={m.id} className={`convo-msg convo-${m.role}`}>
               <small>{m.role === 'user' ? 'Student' : 'Concierge'}</small>
-              <p>{m.content || (m.meta?.attachments ? `[${m.meta.attachments.map((a) => a.name).join(', ')}]` : '')}</p>
+              {m.content && <p>{m.content.replace(/\*\*(.+?)\*\*/g, '$1')}</p>}
+              {m.meta?.attachments?.length > 0 && (
+                <p className="muted small">📎 {m.meta.attachments.map((a) => a.name).join(', ')}</p>
+              )}
             </div>
           ))}
         </div>

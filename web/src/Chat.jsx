@@ -188,6 +188,8 @@ function Welcome({ onAsk }) {
     setDemoBusy(true);
     try {
       signedIn((await api.demo(lang)).user);
+    } catch {
+      openModal('auth', { initialTab: 'signin' });
     } finally {
       setDemoBusy(false);
     }
@@ -205,7 +207,7 @@ function Welcome({ onAsk }) {
           <button type="button" className="btn btn-brand btn-sm" onClick={quickDemo} disabled={demoBusy}>
             {L.tryDemo}
           </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal({ type: 'auth', tab: 'signin' })}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal('auth', { initialTab: 'signin' })}>
             {L.signIn}
           </button>
         </div>
@@ -249,7 +251,7 @@ const Composer = forwardRef(function Composer({ busy, onSend }, ref) {
     }
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const rec = new SR();
-    rec.lang = SPEECH_LANG[lang] || 'ru-RU';
+    rec.lang = SPEECH_LANG[lang] || 'hy-AM';
     rec.interimResults = true;
     rec.continuous = false;
     const base = text.trim() ? `${text.trim()} ` : '';
