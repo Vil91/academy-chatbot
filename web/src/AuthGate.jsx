@@ -143,8 +143,18 @@ export function OAuthButtons({ onSuccess }) {
 export default function AuthGate() {
   const { L, lang, setLang } = useApp();
   return (
-    <div className="auth-gate">
-      <div className="auth-gate-top">
+    <div className="landing">
+      <div className="landing-orb landing-orb-a" aria-hidden="true" />
+      <div className="landing-orb landing-orb-b" aria-hidden="true" />
+
+      <header className="landing-nav">
+        <div className="landing-brand">
+          <img src="/brand/cube-128.png" alt="Picsart Academy" width="34" height="31" />
+          <span>
+            <b>Picsart Academy</b>
+            <small>AI Concierge</small>
+          </span>
+        </div>
         <div className="seg" role="group" aria-label="Language">
           {LANGS.map((l) => (
             <button
@@ -158,16 +168,42 @@ export default function AuthGate() {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      <div className="auth-gate-card">
-        <div className="auth-gate-glow" aria-hidden="true" />
-        <img className="welcome-cube" src="/brand/cube-256.png" alt="Picsart Academy" width="84" height="78" />
-        <h1>Academy Concierge</h1>
-        <p className="auth-gate-sub">{L.authGateSubtitle}</p>
-        <OAuthButtons />
-        <p className="auth-gate-foot">{L.footer}</p>
-      </div>
+      <main className="landing-main">
+        <section className="landing-hero">
+          <div className="landing-emblem">
+            <span className="landing-ring" aria-hidden="true" />
+            <img className="landing-cube" src="/brand/cube-256.png" alt="Picsart Academy" width="96" height="88" />
+          </div>
+          <span className="landing-kicker">{L.authGateKicker}</span>
+          <h1 className="landing-title">{L.authGateTitle}</h1>
+          <p className="landing-sub">{L.authGateSubtitle}</p>
+
+          <div className="landing-auth-box">
+            <span className="landing-auth-label">{L.authGateCtaLabel}</span>
+            <OAuthButtons />
+          </div>
+        </section>
+
+        <section className="landing-bento" aria-label="Features">
+          {L.authGateFeatures.map((f) => (
+            <article key={f.title} className="bento-card">
+              <span className="bento-ico" aria-hidden="true">
+                {f.icon}
+              </span>
+              <h3>{f.title}</h3>
+              <p>{f.desc}</p>
+            </article>
+          ))}
+        </section>
+      </main>
+
+      <footer className="landing-foot">
+        <span>{L.mapAddress}</span>
+        <span>·</span>
+        <a href="tel:+37443477447">+374 43 477447</a>
+      </footer>
     </div>
   );
 }
