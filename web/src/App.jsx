@@ -22,10 +22,18 @@ function LangSwitch() {
   );
 }
 
+function safeDecode(s) {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return null;
+  }
+}
+
 function Shell({ path }) {
   const { L, chats } = useApp();
   const [drawer, setDrawer] = useState(false);
-  const conversationId = path.startsWith('/c/') ? decodeURIComponent(path.slice(3)) : null;
+  const conversationId = path.startsWith('/c/') ? safeDecode(path.slice(3)) : null;
   const page = path.startsWith('/cabinet') ? 'cabinet' : 'chat';
   const title =
     page === 'cabinet' ? L.cabinet : chats.find((c) => c.id === conversationId)?.title || (conversationId ? '' : L.newChat);

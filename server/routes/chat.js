@@ -176,7 +176,13 @@ export function registerChat(app, { db, kb, adminKey }) {
       try {
         for await (const delta of chatStream(llmMessages)) {
           full += delta;
-          if (holdBack === null && full.trim()) holdBack = /^\s*(\{|```)/.test(full);
+          if (holdBack === null) {
+            const trimmed = full.trimStart();
+            if (!trimmed) continue;
+            if (trimmed.startsWith('{') || trimmed.startsWith('```')) holdBack = true;
+            else if (trimmed.startsWith('`') && trimmed.length < 3) continue;
+            else holdBack = false;
+          }
           if (holdBack) continue;
           const mark = full.indexOf(META_MARK);
           const visible = mark !== -1 ? mark : Math.max(sent, full.length - META_MARK.length);
@@ -243,9 +249,11 @@ export function registerChat(app, { db, kb, adminKey }) {
     const name = str(req.body?.name, 120);
     const contact = str(req.body?.contact, 120);
     if (name.length < 2 || contact.length < 3) return res.status(400).json({ error: 'name_and_contact_required' });
+    const rawConvId = str(req.body?.conversationId, 64);
+    const convId = rawConvId && req.owner && getConversation(rawConvId, req.owner) ? rawConvId : null;
     const info = db
       .prepare('INSERT INTO leads (conversation_id, name, contact, interest, preferred_time, lang) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(str(req.body?.conversationId, 64) || null, name, contact, str(req.body?.interest, 80), str(req.body?.preferredTime, 80), normLang(req.body?.lang));
+      .run(convId, name, contact, str(req.body?.interest, 80), str(req.body?.preferredTime, 80), normLang(req.body?.lang));
     res.status(201).json({ ok: true, id: Number(info.lastInsertRowid) });
   });
 
@@ -289,7 +297,7 @@ export function registerChat(app, { db, kb, adminKey }) {
             { role: 'system', content: buildReceiptPrompt() },
             { role: 'user', content: [{ type: 'text', text: 'Read this receipt.' }, { type: 'image_url', image_url: { url: dataUrl(a) } }] },
           ],
-          { maxTokens: 1024 },
+          { maxTokens: 2048 },
         ),
       );
     } catch (err) {

@@ -108,7 +108,7 @@ export function openDb(file) {
   return db;
 }
 
-// Housekeeping: expired sessions and day-old demo accounts (with everything they own).
+// Housekeeping: expired sessions, old demo accounts, stale guest chats and unreferenced attachments.
 export function cleanup(db) {
   db.exec(`
     DELETE FROM sessions WHERE expires_at <= datetime('now');
@@ -119,5 +119,11 @@ export function cleanup(db) {
       SELECT 'u:' || id FROM users WHERE is_demo = 1 AND created_at < datetime('now', '-2 days')
     );
     DELETE FROM users WHERE is_demo = 1 AND created_at < datetime('now', '-2 days');
+    DELETE FROM conversations WHERE owner LIKE 'g:%' AND updated_at < datetime('now', '-7 days');
+    DELETE FROM attachments WHERE owner LIKE 'g:%' AND created_at < datetime('now', '-7 days');
+    DELETE FROM attachments
+      WHERE created_at < datetime('now', '-2 hours')
+        AND id NOT IN (SELECT attachment_id FROM payment_proofs WHERE attachment_id IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.meta IS NOT NULL AND instr(m.meta, attachments.id) > 0);
   `);
 }

@@ -1,11 +1,22 @@
+import crypto from 'node:crypto';
 import { chatCompletion } from '../llm.js';
 import { buildEmailPrompt, parseJsonLoose } from '../prompt.js';
 import { todayYerevan } from '../profile.js';
 import { LANGS, rateLimit, str, toClientMessage } from '../util.js';
 
+function keysMatch(provided, expected) {
+  if (!provided || !expected) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(String(expected));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
 export function registerAdmin(app, { db, kb, adminKey }) {
+  const adminLimiter = rateLimit(60);
   const requireAdmin = (req, res, next) =>
-    req.get('x-admin-key') === adminKey ? next() : res.status(401).json({ error: 'unauthorized' });
+    adminLimiter(req, res, () =>
+      keysMatch(req.get('x-admin-key'), adminKey) ? next() : res.status(401).json({ error: 'unauthorized' }),
+    );
   const all = (sql, ...args) => db.prepare(sql).all(...args);
   const one = (sql, ...args) => db.prepare(sql).get(...args);
 

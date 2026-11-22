@@ -114,6 +114,7 @@ const dict = {
       schedule: 'Դասացուցակ',
       faq: 'Հաճախ տրվող հարցեր',
       contacts: 'Կոնտակտներ',
+      library: 'Գրադարան',
       student_profile: 'Ձեր պրոֆիլը',
     },
     suggestGuest: [
@@ -235,6 +236,7 @@ const dict = {
       schedule: 'Расписание',
       faq: 'Частые вопросы',
       contacts: 'Контакты',
+      library: 'Библиотека',
       student_profile: 'Ваш профиль',
     },
     suggestGuest: [
@@ -356,6 +358,7 @@ const dict = {
       schedule: 'Schedule',
       faq: 'FAQ',
       contacts: 'Contacts',
+      library: 'Library',
       student_profile: 'Your profile',
     },
     suggestGuest: [
