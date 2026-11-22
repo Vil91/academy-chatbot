@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Admin from './Admin.jsx';
+import AuthGate from './AuthGate.jsx';
 import Cabinet from './Cabinet.jsx';
 import Chat from './Chat.jsx';
 import Sidebar from './Sidebar.jsx';
@@ -32,7 +33,7 @@ function safeDecode(s) {
 }
 
 function Shell({ path }) {
-  const { L, chats } = useApp();
+  const { L, chats, user, userLoaded } = useApp();
   const [drawer, setDrawer] = useState(false);
   const conversationId = path.startsWith('/c/') ? safeDecode(path.slice(3)) : null;
   const page = path.startsWith('/cabinet') ? 'cabinet' : 'chat';
@@ -43,6 +44,9 @@ function Shell({ path }) {
   useEffect(() => {
     document.title = title && title !== L.newChat ? `${title} · Academy Concierge` : 'Academy Concierge · Picsart Academy';
   }, [title, L.newChat]);
+
+  if (!userLoaded) return <div className="auth-gate" aria-busy="true" />;
+  if (!user) return <AuthGate />;
 
   return (
     <div className={`shell ${drawer ? 'drawer-open' : ''}`}>

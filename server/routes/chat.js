@@ -44,7 +44,7 @@ export function registerChat(app, { db, kb, adminKey }) {
 
   // ---- conversations --------------------------------------------------
 
-  app.get('/api/conversations', requireOwner, (req, res) => {
+  app.get('/api/conversations', requireUser, (req, res) => {
     const rows = db
       .prepare(
         `SELECT c.id, c.title, c.updated_at,
@@ -57,7 +57,7 @@ export function registerChat(app, { db, kb, adminKey }) {
     });
   });
 
-  app.get('/api/conversations/:id', requireOwner, (req, res) => {
+  app.get('/api/conversations/:id', requireUser, (req, res) => {
     const conv = getConversation(req.params.id, req.owner);
     if (!conv) return res.status(404).json({ error: 'not_found' });
     const messages = db
@@ -67,7 +67,7 @@ export function registerChat(app, { db, kb, adminKey }) {
     res.json({ conversation: { id: conv.id, title: conv.title }, messages });
   });
 
-  app.delete('/api/conversations/:id', requireOwner, (req, res) => {
+  app.delete('/api/conversations/:id', requireUser, (req, res) => {
     const info = db.prepare('DELETE FROM conversations WHERE id = ? AND owner = ?').run(req.params.id, req.owner);
     res.json({ ok: info.changes > 0 });
   });
@@ -76,7 +76,7 @@ export function registerChat(app, { db, kb, adminKey }) {
 
   app.post(
     '/api/attachments',
-    requireOwner,
+    requireUser,
     rateLimit(30),
     express.raw({ type: FILE_TYPES, limit: '6mb' }),
     (req, res) => {
@@ -107,7 +107,7 @@ export function registerChat(app, { db, kb, adminKey }) {
   app.get('/api/attachments/:id', (req, res) => {
     const a = db.prepare('SELECT * FROM attachments WHERE id = ?').get(req.params.id);
     const isAdmin = adminKey && req.get('x-admin-key') === adminKey;
-    if (!a || (!isAdmin && a.owner !== req.owner)) return res.status(404).end();
+    if (!a || (!isAdmin && (!req.user || a.owner !== req.owner))) return res.status(404).end();
     res.set('Content-Type', a.mime);
     res.set('Cache-Control', 'private, max-age=86400');
     res.set('Content-Disposition', `inline; filename*=UTF-8''${encodeURIComponent(a.name)}`);
@@ -116,7 +116,7 @@ export function registerChat(app, { db, kb, adminKey }) {
 
   // ---- chat (streamed) ------------------------------------------------
 
-  app.post('/api/chat', requireOwner, rateLimit(20), async (req, res) => {
+  app.post('/api/chat', requireUser, rateLimit(20), async (req, res) => {
     const text = str(req.body?.message, 1001);
     if (text.length > 1000) return res.status(400).json({ error: 'message_too_long' });
     const ids = Array.isArray(req.body?.attachmentIds) ? req.body.attachmentIds.filter((x) => typeof x === 'string').slice(0, 4) : [];

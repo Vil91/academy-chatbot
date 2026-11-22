@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from './api.js';
+import { OAuthButtons } from './AuthGate.jsx';
 import { useApp } from './context.jsx';
-import { LEAD_PROGRAMS, PROGRAMS } from './i18n.js';
+import { LEAD_PROGRAMS } from './i18n.js';
 import { CheckIcon, CloseIcon } from './icons.jsx';
 
 export function Modal({ title, onClose, children, wide = false }) {
@@ -58,177 +59,12 @@ const FormError = ({ children }) =>
     </p>
   ) : null;
 
-export function AuthModal({ initialTab = 'signin', onClose }) {
-  const { L, lang, signedIn } = useApp();
-  const [tab, setTab] = useState(initialTab);
-  const [form, setForm] = useState({ name: '', email: '', password: '', program: PROGRAMS[0] });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(null);
-  const [googleId, setGoogleId] = useState(null);
-  const googleBtnRef = useRef(null);
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
-  const fail = (err) => setError(L.authErrors[err.code] || L.error);
-
-  useEffect(() => {
-    let active = true;
-    api
-      .authConfig()
-      .then((c) => active && setGoogleId(c?.googleClientId || null))
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!googleId || !googleBtnRef.current) return;
-    let cancelled = false;
-    const renderBtn = () => {
-      if (cancelled || !window.google?.accounts?.id || !googleBtnRef.current) return;
-      window.google.accounts.id.initialize({
-        client_id: googleId,
-        callback: async (resp) => {
-          if (!resp?.credential) return;
-          setBusy('google');
-          setError('');
-          try {
-            signedIn((await api.googleLogin(resp.credential, lang)).user);
-          } catch (err) {
-            fail(err);
-          } finally {
-            setBusy(null);
-          }
-        },
-      });
-      googleBtnRef.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleBtnRef.current, {
-        theme: 'outline',
-        size: 'large',
-        shape: 'pill',
-        width: Math.min(340, googleBtnRef.current.clientWidth || 300),
-        text: 'continue_with',
-      });
-    };
-    if (window.google?.accounts?.id) {
-      renderBtn();
-    } else {
-      let s = document.querySelector('script[data-gsi]');
-      if (!s) {
-        s = document.createElement('script');
-        s.src = 'https://accounts.google.com/gsi/client';
-        s.async = true;
-        s.defer = true;
-        s.dataset.gsi = '1';
-        document.head.appendChild(s);
-      }
-      s.addEventListener('load', renderBtn, { once: true });
-    }
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [googleId, lang]);
-
-  async function submit(e) {
-    e.preventDefault();
-    setBusy('form');
-    setError('');
-    try {
-      const { user } =
-        tab === 'signin'
-          ? await api.login({ email: form.email, password: form.password })
-          : await api.signup({ ...form, lang });
-      signedIn(user);
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function demo() {
-    setBusy('demo');
-    setError('');
-    try {
-      signedIn((await api.demo(lang)).user);
-    } catch (err) {
-      fail(err);
-    } finally {
-      setBusy(null);
-    }
-  }
-
+export function AuthModal({ onClose }) {
+  const { L } = useApp();
   return (
-    <Modal title={tab === 'signin' ? L.signIn : L.signUp} onClose={onClose}>
-      <button type="button" className="demo-card" onClick={demo} disabled={busy !== null}>
-        <img src="/brand/cube-128.png" alt="" width="40" height="37" />
-        <span>
-          <strong>{L.tryDemo}</strong>
-          <small>{L.demoHint}</small>
-        </span>
-      </button>
-
-      {googleId && <div className="google-wrap" ref={googleBtnRef} />}
-
-      <div className="divider">
-        <span>{L.or}</span>
-      </div>
-
-      <div className="tabs" role="tablist">
-        {['signin', 'signup'].map((key) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            className={tab === key ? 'on' : ''}
-            onClick={() => {
-              setTab(key);
-              setError('');
-            }}
-          >
-            {key === 'signin' ? L.signIn : L.signUp}
-          </button>
-        ))}
-      </div>
-
-      <form className="form" onSubmit={submit} noValidate>
-        {tab === 'signup' && (
-          <label className="field">
-            <span>{L.name}</span>
-            <input value={form.name} onChange={set('name')} autoComplete="name" maxLength={80} />
-          </label>
-        )}
-        <label className="field">
-          <span>{L.email}</span>
-          <input type="email" value={form.email} onChange={set('email')} autoComplete="email" maxLength={120} />
-        </label>
-        <label className="field">
-          <span>{L.password}</span>
-          <input
-            type="password"
-            value={form.password}
-            onChange={set('password')}
-            autoComplete={tab === 'signin' ? 'current-password' : 'new-password'}
-            maxLength={200}
-          />
-          {tab === 'signup' && <small className="field-hint">{L.passwordHint}</small>}
-        </label>
-        {tab === 'signup' && (
-          <label className="field">
-            <span>{L.program}</span>
-            <select value={form.program} onChange={set('program')}>
-              {PROGRAMS.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </label>
-        )}
-        <FormError>{error}</FormError>
-        <button className="btn btn-dark btn-block" disabled={busy !== null}>
-          {tab === 'signin' ? L.signIn : L.createAccount}
-        </button>
-      </form>
+    <Modal title={L.signIn} onClose={onClose}>
+      <p className="dialog-intro">{L.authGateSubtitle}</p>
+      <OAuthButtons onSuccess={onClose} />
     </Modal>
   );
 }

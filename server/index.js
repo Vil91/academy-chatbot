@@ -44,6 +44,7 @@ app.get('/api/health', (_req, res) => {
     documents: kb.map((d) => d.id),
     channels: { web: true, telegram: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()) },
     googleAuth: Boolean((process.env.GOOGLE_CLIENT_ID || '').trim()),
+    githubAuth: Boolean((process.env.GITHUB_CLIENT_ID || '').trim() && (process.env.GITHUB_CLIENT_SECRET || '').trim()),
   });
 });
 

@@ -1,16 +1,7 @@
 import crypto from 'node:crypto';
-import {
-  clearSessionCookie,
-  createSession,
-  deleteSession,
-  hashPassword,
-  setSessionCookie,
-  verifyPassword,
-} from '../auth.js';
-import { PROGRAMS, demoProfile, makeProfile } from '../profile.js';
+import { clearSessionCookie, createSession, deleteSession, setSessionCookie } from '../auth.js';
+import { PROGRAMS, makeProfile } from '../profile.js';
 import { normLang, publicUser, rateLimit, str } from '../util.js';
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function newCode(db, prefix) {
   for (;;) {
@@ -19,25 +10,48 @@ function newCode(db, prefix) {
   }
 }
 
+function readCookie(req, name) {
+  const header = req.headers.cookie || '';
+  for (const part of header.split(';')) {
+    const [k, ...rest] = part.trim().split('=');
+    if (k === name) return decodeURIComponent(rest.join('='));
+  }
+  return null;
+}
+
+function publicOrigin(req) {
+  const env = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '');
+  if (env) return env;
+  const proto = req.get('x-forwarded-proto')?.split(',')[0]?.trim() || req.protocol;
+  return `${proto}://${req.get('host')}`;
+}
+
 export function registerAuth(app, { db }) {
-  // Sign the user in and move what they did as a guest (chats, uploads) into their account.
-  function signIn(req, res, user) {
-    setSessionCookie(req, res, createSession(db, user.id));
-    if (req.deviceId) {
-      const from = `g:${req.deviceId}`;
-      const to = `u:${user.id}`;
-      db.prepare('UPDATE conversations SET owner = ? WHERE owner = ?').run(to, from);
-      db.prepare('UPDATE attachments SET owner = ? WHERE owner = ?').run(to, from);
+  function findOrCreateOAuthUser({ email, name, lang }) {
+    const cleanEmail = String(email).toLowerCase().slice(0, 120);
+    const cleanName = str(name || cleanEmail.split('@')[0], 80) || 'Student';
+    let user = db.prepare('SELECT * FROM users WHERE email = ? AND is_demo = 0').get(cleanEmail);
+    if (!user) {
+      const code = newCode(db, 'PA');
+      const program = PROGRAMS[0];
+      const info = db
+        .prepare('INSERT INTO users (email, name, code, program, lang, profile) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(cleanEmail, cleanName, code, program, normLang(lang), JSON.stringify(makeProfile({ name: cleanName, program, code })));
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
     }
+    return user;
   }
 
   app.get('/api/auth/me', (req, res) => res.json({ user: publicUser(req.user) }));
 
   app.get('/api/auth/config', (_req, res) => {
-    res.json({ googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim() || null });
+    res.json({
+      googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim() || null,
+      githubEnabled: Boolean((process.env.GITHUB_CLIENT_ID || '').trim() && (process.env.GITHUB_CLIENT_SECRET || '').trim()),
+    });
   });
 
-  // Google Identity Services sign-in: verifies the ID token with Google's tokeninfo endpoint.
+  // Google Identity Services sign-in (verifies ID token with Google tokeninfo).
   app.post('/api/auth/google', rateLimit(15), async (req, res) => {
     const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
     if (!clientId) return res.status(503).json({ error: 'google_not_configured' });
@@ -59,59 +73,92 @@ export function registerAuth(app, { db }) {
       return res.status(401).json({ error: 'invalid_google_token' });
     }
 
-    const email = String(payload.email).toLowerCase().slice(0, 120);
-    const name = str(payload.name || email.split('@')[0], 80) || 'Student';
-    let user = db.prepare('SELECT * FROM users WHERE email = ? AND is_demo = 0').get(email);
-    if (!user) {
-      const code = newCode(db, 'PA');
-      const program = PROGRAMS[0];
-      const info = db
-        .prepare('INSERT INTO users (email, name, code, program, lang, profile) VALUES (?, ?, ?, ?, ?, ?)')
-        .run(email, name, code, program, normLang(req.body?.lang), JSON.stringify(makeProfile({ name, program, code })));
-      user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+    const user = findOrCreateOAuthUser({ email: payload.email, name: payload.name, lang: req.body?.lang });
+    setSessionCookie(req, res, createSession(db, user.id));
+    res.json({ user: publicUser(user) });
+  });
+
+  // GitHub OAuth 2.0 Authorization Code flow.
+  app.get('/api/auth/github', rateLimit(20), (req, res) => {
+    const clientId = (process.env.GITHUB_CLIENT_ID || '').trim();
+    const clientSecret = (process.env.GITHUB_CLIENT_SECRET || '').trim();
+    if (!clientId || !clientSecret) return res.redirect('/?auth_error=github_not_configured');
+
+    const state = crypto.randomBytes(16).toString('hex');
+    const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+    res.setHeader(
+      'Set-Cookie',
+      `ac_gh_state=${state}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${secure ? '; Secure' : ''}`,
+    );
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${publicOrigin(req)}/api/auth/github/callback`,
+      scope: 'read:user user:email',
+      state,
+    });
+    res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
+  });
+
+  app.get('/api/auth/github/callback', rateLimit(20), async (req, res) => {
+    const clientId = (process.env.GITHUB_CLIENT_ID || '').trim();
+    const clientSecret = (process.env.GITHUB_CLIENT_SECRET || '').trim();
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+    const savedState = readCookie(req, 'ac_gh_state') || '';
+
+    const secure = req.secure || req.get('x-forwarded-proto') === 'https';
+    res.setHeader('Set-Cookie', `ac_gh_state=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure ? '; Secure' : ''}`);
+
+    const stateOk =
+      state.length > 0 &&
+      state.length === savedState.length &&
+      crypto.timingSafeEqual(Buffer.from(state), Buffer.from(savedState));
+    if (!clientId || !clientSecret || !code || !stateOk) {
+      return res.redirect('/?auth_error=github_failed');
     }
-    signIn(req, res, user);
-    res.json({ user: publicUser(user) });
-  });
 
-  app.post('/api/auth/signup', rateLimit(5, 10 * 60_000), async (req, res) => {
-    const name = str(req.body?.name, 80);
-    const email = str(req.body?.email, 120).toLowerCase();
-    const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    const program = PROGRAMS.includes(req.body?.program) ? req.body.program : PROGRAMS[0];
-    if (name.length < 2) return res.status(400).json({ error: 'name_required' });
-    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: 'invalid_email' });
-    if (password.length < 8 || password.length > 200) return res.status(400).json({ error: 'weak_password' });
-    if (db.prepare('SELECT 1 FROM users WHERE email = ?').get(email)) return res.status(409).json({ error: 'email_taken' });
+    try {
+      const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          client_id: clientId,
+          client_secret: clientSecret,
+          code,
+          redirect_uri: `${publicOrigin(req)}/api/auth/github/callback`,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const tokenData = await tokenRes.json();
+      if (!tokenData?.access_token) return res.redirect('/?auth_error=github_failed');
 
-    const code = newCode(db, 'PA');
-    const info = db
-      .prepare('INSERT INTO users (email, password_hash, name, code, program, lang, profile) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(email, await hashPassword(password), name, code, program, normLang(req.body?.lang), JSON.stringify(makeProfile({ name, program, code })));
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-    signIn(req, res, user);
-    res.status(201).json({ user: publicUser(user) });
-  });
+      const ghHeaders = {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'Academy-Concierge',
+      };
+      const profileRes = await fetch('https://api.github.com/user', { headers: ghHeaders, signal: AbortSignal.timeout(8000) });
+      const ghUser = await profileRes.json();
+      if (!ghUser?.id) return res.redirect('/?auth_error=github_failed');
 
-  app.post('/api/auth/login', rateLimit(10), async (req, res) => {
-    const email = str(req.body?.email, 120).toLowerCase();
-    const password = typeof req.body?.password === 'string' ? req.body.password : '';
-    const user = db.prepare('SELECT * FROM users WHERE email = ? AND is_demo = 0').get(email);
-    const ok = user ? await verifyPassword(password, user.password_hash) : false;
-    if (!ok) return res.status(401).json({ error: 'invalid_credentials' });
-    signIn(req, res, user);
-    res.json({ user: publicUser(user) });
-  });
+      let email = ghUser.email;
+      if (!email) {
+        const emailsRes = await fetch('https://api.github.com/user/emails', { headers: ghHeaders, signal: AbortSignal.timeout(8000) });
+        const emails = await emailsRes.json().catch(() => []);
+        const primary = Array.isArray(emails)
+          ? emails.find((e) => e.primary && e.verified) || emails.find((e) => e.verified)
+          : null;
+        email = primary?.email || `${ghUser.login || ghUser.id}@users.noreply.github.com`;
+      }
 
-  // Every visitor gets their own copy of the demo student, so nobody sees anyone else's chats.
-  app.post('/api/auth/demo', rateLimit(10), (req, res) => {
-    const code = newCode(db, 'DEMO');
-    const info = db
-      .prepare('INSERT INTO users (email, name, code, program, lang, profile, is_demo) VALUES (?, ?, ?, ?, ?, ?, 1)')
-      .run(`${code.toLowerCase()}@demo.local`, 'Aram Petrosyan', code, PROGRAMS[0], normLang(req.body?.lang), JSON.stringify(demoProfile(code)));
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
-    signIn(req, res, user);
-    res.status(201).json({ user: publicUser(user) });
+      const user = findOrCreateOAuthUser({ email, name: ghUser.name || ghUser.login, lang: 'hy' });
+      setSessionCookie(req, res, createSession(db, user.id));
+      res.redirect('/');
+    } catch (err) {
+      console.error('[github-auth]', err.message);
+      res.redirect('/?auth_error=github_failed');
+    }
   });
 
   app.post('/api/auth/logout', (req, res) => {

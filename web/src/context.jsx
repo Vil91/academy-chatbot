@@ -41,8 +41,12 @@ export function AppProvider({ children }) {
 
   useEffect(() => {
     refreshUser();
-    refreshChats();
-  }, [refreshUser, refreshChats]);
+  }, [refreshUser]);
+
+  useEffect(() => {
+    if (user) refreshChats();
+    else setChats([]);
+  }, [user, refreshChats]);
 
   const signedIn = useCallback(
     (u) => {

@@ -225,38 +225,15 @@ function StudentChips({ user }) {
 }
 
 function Welcome({ onAsk }) {
-  const { L, lang, user, signedIn, openModal } = useApp();
-  const [demoBusy, setDemoBusy] = useState(false);
+  const { L, lang, user } = useApp();
   const first = user?.profile?.firstName?.[lang] || user?.name?.split(' ')[0];
-
-  async function quickDemo() {
-    setDemoBusy(true);
-    try {
-      signedIn((await api.demo(lang)).user);
-    } catch {
-      openModal('auth', { initialTab: 'signin' });
-    } finally {
-      setDemoBusy(false);
-    }
-  }
 
   return (
     <div className="welcome">
       <img className="welcome-cube" src="/brand/cube-256.png" alt="" width="84" height="78" />
       <h1>{user ? L.studentGreeting(first) : L.greetingTitle}</h1>
       <p>{user ? L.studentGreetingText : L.greeting}</p>
-      {user ? (
-        <StudentChips user={user} />
-      ) : (
-        <div className="welcome-actions">
-          <button type="button" className="btn btn-brand btn-sm" onClick={quickDemo} disabled={demoBusy}>
-            {L.tryDemo}
-          </button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal('auth', { initialTab: 'signin' })}>
-            {L.signIn}
-          </button>
-        </div>
-      )}
+      {user && <StudentChips user={user} />}
       <div className="suggest-label">{L.tryAsking}</div>
       <div className="suggestions">
         {(user ? L.suggestStudent : L.suggestGuest).map((q) => (

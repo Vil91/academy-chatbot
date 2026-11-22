@@ -79,7 +79,7 @@ export function makeProfile({ name, program, code }) {
       { month: monthKey(today, -1), status: 'paid' },
       { month: current, status: 'due', dueDate: `${current}-25` },
     ],
-    attendance: { percent: null, attended: 0, total: 0, missed: 0 },
+    attendance: { percent: 88, attended: 22, total: 25, missed: 3 },
   };
 }
 
