@@ -59,12 +59,17 @@ export function AppProvider({ children }) {
 
   const signOut = useCallback(async () => {
     try {
+      window.google?.accounts?.id?.disableAutoSelect();
+    } catch {
+      /* ignore */
+    }
+    try {
       await api.logout();
     } finally {
       setUser(null);
-      refreshChats();
+      setChats([]);
     }
-  }, [refreshChats]);
+  }, []);
 
   const upsertChat = useCallback((chat) => {
     setChats((list) => [chat, ...list.filter((c) => c.id !== chat.id)]);

@@ -42,7 +42,10 @@ export function registerAuth(app, { db }) {
     return user;
   }
 
-  app.get('/api/auth/me', (req, res) => res.json({ user: publicUser(req.user) }));
+  app.get('/api/auth/me', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ user: publicUser(req.user) });
+  });
 
   app.get('/api/auth/config', (_req, res) => {
     res.json({
@@ -162,6 +165,7 @@ export function registerAuth(app, { db }) {
   });
 
   app.post('/api/auth/logout', (req, res) => {
+    res.set('Cache-Control', 'no-store');
     deleteSession(db, req.sessionToken);
     clearSessionCookie(req, res);
     res.json({ ok: true });

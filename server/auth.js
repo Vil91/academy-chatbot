@@ -56,11 +56,14 @@ export function readSessionCookie(req) {
 }
 
 export function setSessionCookie(req, res, token) {
-  const secure = req.secure ? '; Secure' : '';
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https' ? '; Secure' : '';
   res.append('Set-Cookie', `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_DAYS * 86400}${secure}`);
 }
 
 export function clearSessionCookie(req, res) {
-  const secure = req.secure ? '; Secure' : '';
-  res.append('Set-Cookie', `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
+  const secure = req.secure || req.get('x-forwarded-proto') === 'https' ? '; Secure' : '';
+  res.append(
+    'Set-Cookie',
+    `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secure}`,
+  );
 }
