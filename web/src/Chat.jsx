@@ -4,7 +4,7 @@ import { useApp } from './context.jsx';
 import { fmtDate, fmtMonth, t } from './i18n.js';
 import { ACCEPT, prepareFile } from './images.js';
 import { navigate } from './router.js';
-import { CloseIcon, FileIcon, InfoIcon, PaperclipIcon, ReceiptIcon, SendIcon } from './icons.jsx';
+import { CloseIcon, FileIcon, InfoIcon, MicIcon, PaperclipIcon, ReceiptIcon, SendIcon } from './icons.jsx';
 
 // ---- rich text: paragraphs, "- " lists and **bold** ------------------------
 
@@ -180,14 +180,36 @@ function StudentChips({ user }) {
 }
 
 function Welcome({ onAsk }) {
-  const { L, lang, user } = useApp();
+  const { L, lang, user, signedIn, openModal } = useApp();
+  const [demoBusy, setDemoBusy] = useState(false);
   const first = user?.profile?.firstName?.[lang] || user?.name?.split(' ')[0];
+
+  async function quickDemo() {
+    setDemoBusy(true);
+    try {
+      signedIn((await api.demo(lang)).user);
+    } finally {
+      setDemoBusy(false);
+    }
+  }
+
   return (
     <div className="welcome">
       <img className="welcome-cube" src="/brand/cube-256.png" alt="" width="84" height="78" />
       <h1>{user ? L.studentGreeting(first) : L.greetingTitle}</h1>
       <p>{user ? L.studentGreetingText : L.greeting}</p>
-      {user && <StudentChips user={user} />}
+      {user ? (
+        <StudentChips user={user} />
+      ) : (
+        <div className="welcome-actions">
+          <button type="button" className="btn btn-brand btn-sm" onClick={quickDemo} disabled={demoBusy}>
+            {L.tryDemo}
+          </button>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => openModal({ type: 'auth', tab: 'signin' })}>
+            {L.signIn}
+          </button>
+        </div>
+      )}
       <div className="suggest-label">{L.tryAsking}</div>
       <div className="suggestions">
         {(user ? L.suggestStudent : L.suggestGuest).map((q) => (
@@ -202,14 +224,49 @@ function Welcome({ onAsk }) {
 
 // ---- composer ---------------------------------------------------------------
 
+const SPEECH_LANG = { hy: 'hy-AM', ru: 'ru-RU', en: 'en-US' };
+
 const Composer = forwardRef(function Composer({ busy, onSend }, ref) {
-  const { L } = useApp();
+  const { L, lang } = useApp();
   const [text, setText] = useState('');
   const [files, setFiles] = useState([]);
   const [error, setError] = useState('');
+  const [listening, setListening] = useState(false);
   const inputRef = useRef(null);
   const fileRef = useRef(null);
   const keyRef = useRef(0);
+  const recRef = useRef(null);
+  const speechOk = typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+  useEffect(() => () => recRef.current?.stop(), []);
+
+  function toggleVoice() {
+    if (!speechOk) return;
+    if (listening) {
+      recRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = SPEECH_LANG[lang] || 'ru-RU';
+    rec.interimResults = true;
+    rec.continuous = false;
+    const base = text.trim() ? `${text.trim()} ` : '';
+    rec.onresult = (e) => {
+      const spoken = [...e.results].map((r) => r[0].transcript).join('');
+      setText((base + spoken).slice(0, 1000));
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recRef.current = rec;
+    setListening(true);
+    try {
+      rec.start();
+    } catch {
+      setListening(false);
+    }
+  }
 
   useEffect(() => {
     const el = inputRef.current;
@@ -322,6 +379,18 @@ const Composer = forwardRef(function Composer({ busy, onSend }, ref) {
               }
             }}
           />
+          {speechOk && (
+            <button
+              type="button"
+              className={`attach-btn mic-btn ${listening ? 'is-rec' : ''}`}
+              onClick={toggleVoice}
+              aria-label={listening ? L.voiceStop : L.voiceStart}
+              title={listening ? L.voiceStop : L.voiceStart}
+              disabled={busy}
+            >
+              <MicIcon />
+            </button>
+          )}
           <button className="send-btn" disabled={!canSend} aria-label={L.send} title={L.send}>
             <SendIcon />
           </button>

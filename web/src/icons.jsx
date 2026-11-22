@@ -102,3 +102,18 @@ export const CopyIcon = icon(
     <path d="M5 15V6a2 2 0 0 1 2-2h9" />
   </>,
 );
+export const MicIcon = icon(
+  <>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0" />
+    <path d="M12 18v3" />
+    <path d="M8 21h8" />
+  </>,
+);
+export const DownloadIcon = icon(
+  <>
+    <path d="M12 4v12" />
+    <path d="m7 11 5 5 5-5" />
+    <path d="M5 20h14" />
+  </>,
+);

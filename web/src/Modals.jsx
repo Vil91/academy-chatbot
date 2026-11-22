@@ -64,8 +64,70 @@ export function AuthModal({ initialTab = 'signin', onClose }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', program: PROGRAMS[0] });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
+  const [googleId, setGoogleId] = useState(null);
+  const googleBtnRef = useRef(null);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const fail = (err) => setError(L.authErrors[err.code] || L.error);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .authConfig()
+      .then((c) => active && setGoogleId(c?.googleClientId || null))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!googleId || !googleBtnRef.current) return;
+    let cancelled = false;
+    const renderBtn = () => {
+      if (cancelled || !window.google?.accounts?.id || !googleBtnRef.current) return;
+      window.google.accounts.id.initialize({
+        client_id: googleId,
+        callback: async (resp) => {
+          if (!resp?.credential) return;
+          setBusy('google');
+          setError('');
+          try {
+            signedIn((await api.googleLogin(resp.credential, lang)).user);
+          } catch (err) {
+            fail(err);
+          } finally {
+            setBusy(null);
+          }
+        },
+      });
+      googleBtnRef.current.innerHTML = '';
+      window.google.accounts.id.renderButton(googleBtnRef.current, {
+        theme: 'outline',
+        size: 'large',
+        shape: 'pill',
+        width: 340,
+        text: 'continue_with',
+      });
+    };
+    if (window.google?.accounts?.id) {
+      renderBtn();
+    } else {
+      let s = document.querySelector('script[data-gsi]');
+      if (!s) {
+        s = document.createElement('script');
+        s.src = 'https://accounts.google.com/gsi/client';
+        s.async = true;
+        s.defer = true;
+        s.dataset.gsi = '1';
+        document.head.appendChild(s);
+      }
+      s.addEventListener('load', renderBtn, { once: true });
+    }
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [googleId, lang]);
 
   async function submit(e) {
     e.preventDefault();
@@ -105,6 +167,8 @@ export function AuthModal({ initialTab = 'signin', onClose }) {
           <small>{L.demoHint}</small>
         </span>
       </button>
+
+      {googleId && <div className="google-wrap" ref={googleBtnRef} />}
 
       <div className="divider">
         <span>{L.or}</span>

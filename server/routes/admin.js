@@ -21,6 +21,36 @@ export function registerAdmin(app, { db, kb, adminKey }) {
   const one = (sql, ...args) => db.prepare(sql).get(...args);
 
   app.get('/api/admin/summary', requireAdmin, (_req, res) => {
+    const botMetaRows = all("SELECT meta FROM messages WHERE role = 'assistant' AND meta IS NOT NULL ORDER BY id DESC LIMIT 500");
+    const byLang = { hy: 0, ru: 0, en: 0 };
+    const sourceCounts = {};
+    let confSum = 0;
+    let confN = 0;
+    let handoffN = 0;
+    for (const r of botMetaRows) {
+      let m;
+      try {
+        m = JSON.parse(r.meta);
+      } catch {
+        continue;
+      }
+      if (m.lang && byLang[m.lang] !== undefined) byLang[m.lang]++;
+      if (typeof m.confidence === 'number') {
+        confSum += m.confidence;
+        confN++;
+      }
+      if (m.handoff) handoffN++;
+      if (Array.isArray(m.sources)) {
+        for (const s of m.sources) sourceCounts[s] = (sourceCounts[s] || 0) + 1;
+      }
+    }
+    const topSources = Object.entries(sourceCounts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([id, count]) => ({ id, count }));
+    const totalAnswers = botMetaRows.length;
+    const tgChats = one("SELECT COUNT(*) AS n FROM conversations WHERE owner LIKE 'tg:%'").n;
+    const allChats = one('SELECT COUNT(*) AS n FROM conversations').n;
+
     res.json({
       counts: {
         users: one('SELECT COUNT(*) AS n FROM users WHERE is_demo = 0').n,
@@ -29,8 +59,18 @@ export function registerAdmin(app, { db, kb, adminKey }) {
         openHandoffs: one("SELECT COUNT(*) AS n FROM handoffs WHERE status = 'open'").n,
         pendingPayments: one("SELECT COUNT(*) AS n FROM payment_proofs WHERE status = 'pending'").n,
         excuses: one('SELECT COUNT(*) AS n FROM excuses').n,
-        conversations: one('SELECT COUNT(*) AS n FROM conversations').n,
+        conversations: allChats,
         questions: one("SELECT COUNT(*) AS n FROM messages WHERE role = 'user'").n,
+      },
+      analytics: {
+        totalAnswers,
+        deflectionRate: totalAnswers ? Math.round(((totalAnswers - handoffN) / totalAnswers) * 100) : 100,
+        avgConfidence: confN ? Math.round((confSum / confN) * 100) : 0,
+        byLang,
+        topSources,
+        channels: { web: Math.max(0, allChats - tgChats), telegram: tgChats },
+        telegramActive: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()),
+        googleAuthActive: Boolean((process.env.GOOGLE_CLIENT_ID || '').trim()),
       },
       paymentProofs: all(
         `SELECT p.*, u.name AS user_name, u.code AS user_code FROM payment_proofs p JOIN users u ON u.id = p.user_id
@@ -43,6 +83,16 @@ export function registerAdmin(app, { db, kb, adminKey }) {
       ),
       users: all('SELECT id, name, email, code, program, is_demo, created_at FROM users ORDER BY id DESC LIMIT 50'),
     });
+  });
+
+  app.get('/api/admin/export/leads.csv', requireAdmin, (_req, res) => {
+    const rows = all('SELECT id, created_at, name, contact, interest, preferred_time, lang, conversation_id FROM leads ORDER BY id DESC');
+    const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['id', 'created_at', 'name', 'contact', 'interest', 'preferred_time', 'lang', 'conversation_id'];
+    const csv = '\uFEFF' + [header.join(','), ...rows.map((r) => header.map((k) => esc(r[k])).join(','))].join('\r\n');
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', 'attachment; filename="academy-leads.csv"');
+    res.send(csv);
   });
 
   app.get('/api/admin/conversations/:id', requireAdmin, (req, res) => {

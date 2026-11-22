@@ -10,6 +10,7 @@ import { llmConfig } from './llm.js';
 import { registerAuth } from './routes/auth.js';
 import { registerChat } from './routes/chat.js';
 import { registerAdmin } from './routes/admin.js';
+import { registerTelegram } from './routes/telegram.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8080);
@@ -37,12 +38,19 @@ app.use('/api', (req, _res, next) => {
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, model: llmConfig().model, documents: kb.map((d) => d.id) });
+  res.json({
+    ok: true,
+    model: llmConfig().model,
+    documents: kb.map((d) => d.id),
+    channels: { web: true, telegram: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()) },
+    googleAuth: Boolean((process.env.GOOGLE_CLIENT_ID || '').trim()),
+  });
 });
 
 registerAuth(app, { db });
 registerChat(app, { db, kb, adminKey: ADMIN_KEY });
 registerAdmin(app, { db, kb, adminKey: ADMIN_KEY });
+registerTelegram(app, { db, kb });
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 

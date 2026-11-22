@@ -20,6 +20,10 @@ services:
         value: low
       - key: LLM_API_KEY
         sync: false # Google AI Studio key — entered in Render, never committed
+      - key: GOOGLE_CLIENT_ID
+        sync: false # Optional Google OAuth Client ID for "Continue with Google"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false # Optional @BotFather token for live Telegram bot webhook
       - key: ADMIN_KEY
         generateValue: true
       - key: DB_PATH

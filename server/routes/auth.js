@@ -33,6 +33,47 @@ export function registerAuth(app, { db }) {
 
   app.get('/api/auth/me', (req, res) => res.json({ user: publicUser(req.user) }));
 
+  app.get('/api/auth/config', (_req, res) => {
+    res.json({ googleClientId: (process.env.GOOGLE_CLIENT_ID || '').trim() || null });
+  });
+
+  // Google Identity Services sign-in: verifies the ID token with Google's tokeninfo endpoint.
+  app.post('/api/auth/google', rateLimit(15), async (req, res) => {
+    const clientId = (process.env.GOOGLE_CLIENT_ID || '').trim();
+    if (!clientId) return res.status(503).json({ error: 'google_not_configured' });
+    const credential = typeof req.body?.credential === 'string' ? req.body.credential.trim() : '';
+    if (!credential || credential.length > 4096) return res.status(400).json({ error: 'invalid_credential' });
+
+    let payload;
+    try {
+      const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`, {
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!r.ok) return res.status(401).json({ error: 'invalid_google_token' });
+      payload = await r.json();
+    } catch {
+      return res.status(502).json({ error: 'google_verify_failed' });
+    }
+
+    if (payload.aud !== clientId || payload.email_verified !== 'true' || !payload.email) {
+      return res.status(401).json({ error: 'invalid_google_token' });
+    }
+
+    const email = String(payload.email).toLowerCase().slice(0, 120);
+    const name = str(payload.name || email.split('@')[0], 80) || 'Student';
+    let user = db.prepare('SELECT * FROM users WHERE email = ? AND is_demo = 0').get(email);
+    if (!user) {
+      const code = newCode(db, 'PA');
+      const program = PROGRAMS[0];
+      const info = db
+        .prepare('INSERT INTO users (email, name, code, program, lang, profile) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(email, name, code, program, normLang(req.body?.lang), JSON.stringify(makeProfile({ name, program, code })));
+      user = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+    }
+    signIn(req, res, user);
+    res.json({ user: publicUser(user) });
+  });
+
   app.post('/api/auth/signup', rateLimit(5, 10 * 60_000), async (req, res) => {
     const name = str(req.body?.name, 80);
     const email = str(req.body?.email, 120).toLowerCase();

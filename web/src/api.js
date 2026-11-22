@@ -30,8 +30,10 @@ const admin = (key) => ({ 'x-admin-key': key });
 
 export const api = {
   me: () => request('/api/auth/me'),
+  authConfig: () => request('/api/auth/config'),
   signup: (body) => request('/api/auth/signup', { method: 'POST', body }),
   login: (body) => request('/api/auth/login', { method: 'POST', body }),
+  googleLogin: (credential, lang) => request('/api/auth/google', { method: 'POST', body: { credential, lang } }),
   demo: (lang) => request('/api/auth/demo', { method: 'POST', body: { lang } }),
   logout: () => request('/api/auth/logout', { method: 'POST', body: {} }),
 
@@ -56,6 +58,11 @@ export const api = {
     setProof: (key, id, status) => request(`/api/admin/payment-proofs/${id}`, { method: 'POST', body: { status }, headers: admin(key) }),
     setHandoff: (key, id, status) => request(`/api/admin/handoffs/${id}`, { method: 'POST', body: { status }, headers: admin(key) }),
     emailDraft: (key, email) => request('/api/admin/email-draft', { method: 'POST', body: { email }, headers: admin(key) }),
+    exportLeadsCsv: async (key) => {
+      const res = await fetch('/api/admin/export/leads.csv', { headers: admin(key) });
+      if (!res.ok) throw new Error('export_failed');
+      return res.blob();
+    },
     attachmentBlob: async (key, id) => {
       const res = await fetch(`/api/attachments/${encodeURIComponent(id)}`, { headers: admin(key) });
       if (!res.ok) throw new Error('not_found');

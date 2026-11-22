@@ -1,17 +1,100 @@
 import { useEffect, useState } from 'react';
 import { api } from './api.js';
 import { fmtAmount } from './i18n.js';
-import { CheckIcon, CloseIcon, CopyIcon, RefreshIcon } from './icons.jsx';
+import { CheckIcon, CloseIcon, CopyIcon, DownloadIcon, RefreshIcon } from './icons.jsx';
 import { sessionGet, sessionSet } from './storage.js';
 
 const TABS = [
   ['payments', 'Payments'],
   ['handoffs', 'Handoffs'],
   ['inbox', 'Inbox assistant'],
+  ['analytics', 'Analytics'],
   ['leads', 'Leads'],
   ['absences', 'Absences'],
   ['users', 'Users'],
 ];
+
+function Analytics({ analytics }) {
+  if (!analytics) return <p className="admin-empty">No analytics yet.</p>;
+  const langTotal = Math.max(1, (analytics.byLang?.hy || 0) + (analytics.byLang?.ru || 0) + (analytics.byLang?.en || 0));
+  const maxSrc = Math.max(1, ...(analytics.topSources || []).map((s) => s.count));
+  const langs = [
+    ['ՀԱՅ (Armenian)', analytics.byLang?.hy || 0],
+    ['РУС (Russian)', analytics.byLang?.ru || 0],
+    ['ENG (English)', analytics.byLang?.en || 0],
+  ];
+  return (
+    <div className="analytics-wrap">
+      <div className="tiles">
+        <div className="tile">
+          <small>AI Deflection Rate</small>
+          <b>{analytics.deflectionRate}%</b>
+        </div>
+        <div className="tile">
+          <small>Avg Confidence</small>
+          <b>{analytics.avgConfidence}%</b>
+        </div>
+        <div className="tile">
+          <small>Web / Telegram Chats</small>
+          <b>
+            {analytics.channels?.web ?? 0} / {analytics.channels?.telegram ?? 0}
+          </b>
+        </div>
+        <div className="tile">
+          <small>Channels & Auth</small>
+          <span className="status-pills">
+            <span className={`pill pill-${analytics.telegramActive ? 'paid' : 'pending'}`}>
+              Telegram {analytics.telegramActive ? 'ON' : 'Ready'}
+            </span>
+            <span className={`pill pill-${analytics.googleAuthActive ? 'paid' : 'pending'}`}>
+              Google {analytics.googleAuthActive ? 'ON' : 'Ready'}
+            </span>
+          </span>
+        </div>
+      </div>
+
+      <div className="analytics-grid">
+        <div className="analytics-card">
+          <h3>Questions by language</h3>
+          <div className="bar-list">
+            {langs.map(([label, n]) => (
+              <div key={label} className="bar-row">
+                <div className="bar-head">
+                  <span>{label}</span>
+                  <b>{n}</b>
+                </div>
+                <div className="bar-track">
+                  <div className="bar-fill" style={{ width: `${Math.round((n / langTotal) * 100)}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="analytics-card">
+          <h3>Top knowledge sources cited</h3>
+          {analytics.topSources?.length ? (
+            <div className="bar-list">
+              {analytics.topSources.map((s) => (
+                <div key={s.id} className="bar-row">
+                  <div className="bar-head">
+                    <span>{s.id}</span>
+                    <b>{s.count}</b>
+                  </div>
+                  <div className="bar-track">
+                    <div className="bar-fill bar-fill-aqua" style={{ width: `${Math.round((s.count / maxSrc) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted small">No answers recorded yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Table({ rows, columns, empty }) {
   if (!rows.length) return <p className="admin-empty">{empty}</p>;
@@ -352,29 +435,51 @@ export default function Admin() {
 
       {tab === 'inbox' && <Inbox adminKey={key} />}
 
+      {tab === 'analytics' && <Analytics analytics={data.analytics} />}
+
       {tab === 'leads' && (
-        <Table
-          rows={data.leads}
-          empty="No entry test requests yet."
-          columns={[
-            { key: 'created_at', label: 'Time (UTC)' },
-            { key: 'name', label: 'Name' },
-            { key: 'contact', label: 'Contact' },
-            { key: 'interest', label: 'Program' },
-            { key: 'preferred_time', label: 'Preferred time' },
-            { key: 'lang', label: 'Lang' },
-            {
-              key: 'chat',
-              label: '',
-              render: (l) =>
-                l.conversation_id ? (
-                  <button type="button" className="link-btn" onClick={() => setOpenConvo(l.conversation_id)}>
-                    View chat
-                  </button>
-                ) : null,
-            },
-          ]}
-        />
+        <>
+          <div className="tab-toolbar">
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              disabled={!data.leads.length}
+              onClick={async () => {
+                const blob = await api.admin.exportLeadsCsv(key);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'academy-leads.csv';
+                a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}
+            >
+              <DownloadIcon width={15} height={15} /> Export CSV
+            </button>
+          </div>
+          <Table
+            rows={data.leads}
+            empty="No entry test requests yet."
+            columns={[
+              { key: 'created_at', label: 'Time (UTC)' },
+              { key: 'name', label: 'Name' },
+              { key: 'contact', label: 'Contact' },
+              { key: 'interest', label: 'Program' },
+              { key: 'preferred_time', label: 'Preferred time' },
+              { key: 'lang', label: 'Lang' },
+              {
+                key: 'chat',
+                label: '',
+                render: (l) =>
+                  l.conversation_id ? (
+                    <button type="button" className="link-btn" onClick={() => setOpenConvo(l.conversation_id)}>
+                      View chat
+                    </button>
+                  ) : null,
+              },
+            ]}
+          />
+        </>
       )}
 
       {tab === 'absences' && (
