@@ -197,6 +197,16 @@ export function registerChat(app, { db, kb, adminKey }) {
         full = await chatCompletion(llmMessages);
       }
       if (!full.trim()) throw new Error('empty answer');
+      // Guard against rare early SSE cutoff (missing @@META@@ and mid-sentence end): retry non-streaming once.
+      if (!full.includes(META_MARK) && !/[.!?։՞:…)"»]\s*$/.test(full.trim())) {
+        console.warn('[chat] stream looked truncated, recovering via completion');
+        try {
+          const recovered = await chatCompletion(llmMessages);
+          if (recovered.length > full.length) full = recovered;
+        } catch (recErr) {
+          console.warn('[chat] recovery failed, keeping streamed text:', recErr.message);
+        }
+      }
 
       const { answer, metaRaw } = splitMeta(full);
       const meta = parseMeta(metaRaw, { fallbackLang: langHint, allowedSources, signedIn: Boolean(req.user) });

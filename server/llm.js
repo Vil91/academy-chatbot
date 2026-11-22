@@ -66,7 +66,7 @@ const partText = (content) =>
     ? content.map((part) => (typeof part === 'string' ? part : part?.text || '')).join('')
     : content || '';
 
-export async function chatCompletion(messages, { maxTokens = 4096 } = {}) {
+export async function chatCompletion(messages, { maxTokens = 8192 } = {}) {
   const res = await fetchWithFallback(messages, { maxTokens, stream: false });
   const data = await res.json();
   const text = partText(data?.choices?.[0]?.message?.content);
@@ -75,32 +75,42 @@ export async function chatCompletion(messages, { maxTokens = 4096 } = {}) {
 }
 
 // Yields text as it is generated (server-sent events, OpenAI chunk format).
-export async function* chatStream(messages, { maxTokens = 4096 } = {}) {
+export async function* chatStream(messages, { maxTokens = 8192 } = {}) {
   const res = await fetchWithFallback(messages, { maxTokens, stream: true });
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  const parseLine = (raw) => {
+    const line = raw.trim();
+    if (!line.startsWith('data:')) return null;
+    const payload = line.slice(5).trim();
+    if (payload === '[DONE]') return 'DONE';
+    try {
+      const chunk = JSON.parse(payload);
+      if (chunk.model === 'keepalive') return null; // OmniRoute sends these while it waits
+      return partText(chunk?.choices?.[0]?.delta?.content) || null;
+    } catch {
+      return null;
+    }
+  };
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      buffer += decoder.decode();
+      if (buffer.trim()) {
+        const tail = parseLine(buffer);
+        if (tail && tail !== 'DONE') yield tail;
+      }
+      break;
+    }
     buffer += decoder.decode(value, { stream: true });
     let newline;
     while ((newline = buffer.indexOf('\n')) !== -1) {
-      const line = buffer.slice(0, newline).trim();
+      const resText = parseLine(buffer.slice(0, newline));
       buffer = buffer.slice(newline + 1);
-      if (!line.startsWith('data:')) continue;
-      const payload = line.slice(5).trim();
-      if (payload === '[DONE]') return;
-      let chunk;
-      try {
-        chunk = JSON.parse(payload);
-      } catch {
-        continue;
-      }
-      if (chunk.model === 'keepalive') continue; // OmniRoute sends these while it waits
-      const text = partText(chunk?.choices?.[0]?.delta?.content);
-      if (text) yield text;
+      if (resText === 'DONE') return;
+      if (resText) yield resText;
     }
   }
 }
