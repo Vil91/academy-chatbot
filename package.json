@@ -1,0 +1,15 @@
+{
+  "name": "academy-chatbot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Academy Concierge — multilingual (hy/ru/en) chatbot for Picsart Academy applicants and students. Fellowship Program, Project 14.",
+  "scripts": {
+    "build": "npm --prefix web install --include=dev && npm --prefix web run build && npm --prefix server install --omit=dev",
+    "start": "node server/index.js",
+    "dev:server": "node --watch server/index.js",
+    "dev:web": "npm --prefix web run dev"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

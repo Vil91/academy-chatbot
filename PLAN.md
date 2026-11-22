@@ -45,6 +45,14 @@ LLM через OmniRoute (OpenAI-совместимый, env `LLM_BASE_URL`/`LLM
 | Бэкенд: Express, БД, RAG, эндпоинты | Gemini Neon (agy) |
 | Тесты бэкенда | Gemini Hydrogen (agy) |
 
+## Итог сборки (22.11)
+- ✅ Бэкенд (Express + node:sqlite) и фронтенд (React + Vite) — написал Claude целиком: бэкенд маленький, а срок — завтра, через agy вышло бы дольше.
+- ✅ Проверено локально через OmniRoute: hy/ru/en, армянский латиницей, handoff, студенческий режим, заявки, пропуски, /admin, телефон и тёмная тема.
+- ⬜ Деплой на Render (render.yaml) + ключ Gemini (Google AI Studio) — нужны вход владельца в Google и Render.
+- ⬜ Отправить ссылку Vardan'у.
+
 ## Лог решений
+- 22.11: хостинг — Render free (одна служба отдаёт API и сайт). В облаке LLM = Gemini напрямую по ключу; локально — OmniRoute без ключа. Туннели отклонены владельцем.
+- 22.11: модель локально — antigravity/gemini-3.8-flash-high (Gemini 4 в OmniRoute отключены); ответ через шлюз ~30 с, через Gemini API — секунды.
 - 22.11: выбран только Academy Chatbot (не 2 проекта). Подход: PRD+план → сборка.
 - 22.11: MVP = веб-виджет; Telegram/Slack — фаза 2.
