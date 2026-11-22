@@ -11,6 +11,7 @@ import { registerAuth } from './routes/auth.js';
 import { registerChat } from './routes/chat.js';
 import { registerAdmin } from './routes/admin.js';
 import { registerTelegram } from './routes/telegram.js';
+import { registerSlack } from './routes/slack.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = Number(process.env.PORT || 8080);
@@ -25,7 +26,14 @@ const kb = loadKnowledge(path.join(ROOT, 'knowledge'));
 const app = express();
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
-app.use(express.json({ limit: '64kb' }));
+app.use(
+  express.json({
+    limit: '64kb',
+    verify: (req, _res, buf) => {
+      if (req.originalUrl?.startsWith('/api/slack/')) req.rawBody = buf.toString('utf8');
+    },
+  }),
+);
 
 // Who is asking: a signed-in user (session cookie) or a guest (device id kept in the browser).
 app.use('/api', (req, _res, next) => {
@@ -42,7 +50,11 @@ app.get('/api/health', (_req, res) => {
     ok: true,
     model: llmConfig().model,
     documents: kb.map((d) => d.id),
-    channels: { web: true, telegram: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()) },
+    channels: {
+      web: true,
+      telegram: Boolean((process.env.TELEGRAM_BOT_TOKEN || '').trim()),
+      slack: Boolean((process.env.SLACK_BOT_TOKEN || '').trim() && (process.env.SLACK_SIGNING_SECRET || '').trim()),
+    },
     googleAuth: Boolean((process.env.GOOGLE_CLIENT_ID || '').trim()),
     githubAuth: Boolean((process.env.GITHUB_CLIENT_ID || '').trim() && (process.env.GITHUB_CLIENT_SECRET || '').trim()),
   });
@@ -52,6 +64,7 @@ registerAuth(app, { db });
 registerChat(app, { db, kb, adminKey: ADMIN_KEY });
 registerAdmin(app, { db, kb, adminKey: ADMIN_KEY });
 registerTelegram(app, { db, kb });
+registerSlack(app, { db, kb });
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'not_found' }));
 

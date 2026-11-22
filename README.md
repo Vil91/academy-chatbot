@@ -1,74 +1,53 @@
 # Academy Concierge
 
-The Picsart Academy assistant for applicants and students — **Student Fellowship Program, Project 14 (Academy Chatbot)**.
+Multilingual AI assistant for **Picsart Academy** applicants and students — **Student Fellowship Program, Project 14 (Academy Chatbot)**.
 
-It answers in **Armenian, Russian and English** (Armenian typed in Latin letters works too), only from approved Academy content. When it doesn't know, it says so and hands the question to a coordinator instead of guessing.
+- **Live Deployment:** https://academy-concierge-cpav.onrender.com
+- **Coordinator Panel:** `/admin`
 
-![Chat](screenshots/v2/v2-05-desktop-receipt.png)
+---
 
-## What it does
+## Features
 
-| | |
-| --- | --- |
-| **Grounded answers** | Every answer comes only from `knowledge/*.md` (programs, schedule, FAQ, contacts) and shows its sources. The answer streams in word by word. |
-| **Three languages** | Replies in the language of the question; the interface switches between ՀԱՅ / РУС / ENG. |
-| **Chat history** | Every conversation is saved; reopen, continue or delete it from the sidebar. Chats started as a guest move into the account on sign-in. |
-| **Accounts** | Sign up with email and password, or continue as a demo student (each visitor gets a private copy). |
-| **Personal account** | Schedule, next exam, attendance, payments, absence notes. |
-| **Payment receipts** | Send a photo of a receipt in the chat or from the account: the model reads the amount, date and reference, and a coordinator confirms it — then the month shows as paid. |
-| **Human handoff** | Questions outside the knowledge base, or facts not confirmed yet, go to a coordinator with the whole conversation. |
-| **Entry-test booking** | When an applicant wants to apply, the bot offers a form; the request is saved as a lead with the chat attached. |
-| **Coordinator panel** (`/admin`) | Receipts to confirm, handoffs with the conversation, leads, absence notes, users — and an **inbox assistant** that drafts replies to student emails from the knowledge base, leaving `[placeholders]` for facts it does not have. |
+| Capability | Implementation |
+| :--- | :--- |
+| **Multilingual Chat & Voice** | Eastern Armenian (including Latin translit), Russian, and English UI + answers, SSE token streaming, and Web Speech API voice input. |
+| **Strictly Grounded Knowledge Base (7 sources)** | Full `picsartacademy.am` catalog (all 14 courses with tuition, schedules, FAQs, corporate training), official policies/projects from both Academy Slack workspaces (all 16 Fellowship projects, campus zones, exam rubric), and **Academy Library** book search (`knowledge/*.md`). |
+| **OAuth Authentication** | Google Identity Services (`POST /api/auth/google`) and GitHub OAuth 2.0 (`GET /api/auth/github`), `HttpOnly` session cookies, auth-gated chats & attachments. |
+| **Personal Student Cabinet** | `/cabinet` localized in HY / RU / EN: weekly schedule, rooms, attendance meter, next exam, monthly payments, absence notes, and chat history. |
+| **Payment Receipt Vision OCR** | Upload receipt photo in chat or cabinet → multimodal LLM extracts amount, currency, date, payer, and reference → coordinator approves/rejects in `/admin`. |
+| **Campus Navigator Map** | Asking for directions renders an interactive E Plaza map card (Azatutyan Ave 24/17, Yerevan) with 1-tap Google Maps & Yandex Maps routing (and native `sendVenue` pin in Telegram). |
+| **Leads & Excuse Requests** | Applicant interview/test booking (`/api/lead`, linked to full conversation + CSV export) and signed-in student absence notes (`/api/excuse`). |
+| **Human Handoff & Inbox Assistant** | Uncertain/out-of-scope questions escalate to `/admin → Handoffs` with full transcript. `/admin → Inbox assistant` drafts grounded replies to student emails with `[placeholders]`. |
+| **AI Quality Analytics** | `/admin → Analytics` tracks AI Deflection Rate %, average confidence %, language split, top cited knowledge sources, and channel metrics. |
+| **Multi-Channel Adapters** | Web SPA + live **Telegram Bot webhook** (`/api/telegram/webhook`, auto-registered on Render) + **Slack Events API adapter** (`/api/slack/events` with HMAC-SHA256 signature verification). |
 
-## Demo access
+---
 
-- **Continue as a demo student** in the sign-in window — no password; demo accounts are removed after 2 days.
-- Coordinator panel: `/admin`, with the `ADMIN_KEY` from the hosting settings.
+## Architecture
 
-## How it is built
+- **Frontend:** React + Vite (`web/`), built into `web/dist` and served by Express.
+- **Backend:** Node 24 + Express 5 (`server/`), built-in `node:sqlite` (WAL mode, automated cleanup).
+- **LLM Gateway:** OpenAI-compatible client (`server/llm.js`) with automatic retry & fallback (`gemini-3.6-flash` → `gemini-3.5-flash-lite`), SSE stream buffer flushing, and truncation auto-recovery.
+- **Hosting:** Single Render Web Service (`render.yaml`, Frankfurt region).
 
+```text
+Web UI / Telegram / Slack ──► Express (Node 24) ──► Gemini API (retry + fallback)
+                                     │                    ▲
+                                     │      7 verified knowledge/*.md + student profile
+                                     └──► SQLite: users · sessions · chats · receipts · leads · handoffs · excuses
 ```
-browser ──► Express ──► /api/chat (server-sent events) ──► Gemini (OpenAI-compatible API)
-  React       │                ▲
-  (Vite)      │   system prompt = rules + knowledge/*.md + the student's profile + attached images
-              └──► SQLite: users · sessions · conversations · messages · attachments ·
-                   payment_proofs · leads · handoffs · absence notes
-```
 
-- **Web app:** React + Vite (`web/`), built into `web/dist` and served by the same server.
-- **Server:** Node 24 + Express (`server/`), SQLite through the built-in `node:sqlite`.
-- **Model:** any OpenAI-compatible endpoint, set by `LLM_BASE_URL`, `LLM_API_KEY`, `CHAT_MODEL`. In production: Gemini directly. In development: a local OmniRoute gateway.
-- **Answer format:** the model writes the reply first, then a `@@META@@{…}` line with language, sources, confidence, handoff flag, suggested action and the fields read from a receipt. The server streams the reply and parses the metadata.
-- **Security:** passwords hashed with scrypt; sessions in HttpOnly cookies, only a hash of the token stored; every chat, file and receipt checked against its owner; rate limits on chat, sign-in and uploads; only images and PDFs accepted.
-- **Hosting:** one free Render web service (`render.yaml`).
-
-## API
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| POST | `/api/chat` | `{message, conversationId?, attachmentIds?, uiLang}` → stream: `start`, `delta`…, `done` |
-| GET/DELETE | `/api/conversations[/:id]` | Chat history |
-| POST/GET | `/api/attachments[/:id]` | Upload or open an image / PDF |
-| POST | `/api/auth/signup` · `login` · `demo` · `logout`; GET `/api/auth/me` | Accounts |
-| GET | `/api/me/cabinet` | Personal account data |
-| POST | `/api/payments/proof` | Receipt from the personal account |
-| POST | `/api/lead` · `/api/excuse` | Entry-test request · absence note |
-| GET/POST | `/api/admin/*` | Coordinator panel (header `x-admin-key`) |
-
-## Run locally
+## Run Locally
 
 ```bash
 npm run build
-LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai LLM_API_KEY=<key> CHAT_MODEL=gemini-flash-latest npm start
+LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai \
+LLM_API_KEY=<gemini-api-key> \
+CHAT_MODEL=gemini-3.6-flash \
+GOOGLE_CLIENT_ID=<google-client-id> \
+GITHUB_CLIENT_ID=<github-client-id> \
+GITHUB_CLIENT_SECRET=<github-client-secret> \
+npm start
 # open http://localhost:8080
 ```
-
-Without `LLM_*` variables the server uses a local OmniRoute gateway at `http://127.0.0.1:20128/v1`.
-
-## Limits of this demo
-
-- Student profiles are generated demo data; real ones would come from the Academy Core Engine (Project 1), and payments from the Payment Suite (Project 6).
-- On Render's free plan the service sleeps after 15 minutes without traffic (the first request then takes up to a minute), and the SQLite data is reset when the service restarts.
-- Telegram and Slack are the next step: the chat API does not depend on the channel, so they are thin adapters on top of `/api/chat`.
-
-Logo and brand colours © Picsart Academy.

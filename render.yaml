@@ -25,7 +25,11 @@ services:
       - key: GITHUB_CLIENT_SECRET
         sync: false # GitHub OAuth App Client Secret
       - key: TELEGRAM_BOT_TOKEN
-        sync: false # Optional @BotFather token for live Telegram bot webhook
+        sync: false # @BotFather token for live Telegram bot webhook
+      - key: SLACK_BOT_TOKEN
+        sync: false # Optional Slack Bot User OAuth Token (xoxb-...)
+      - key: SLACK_SIGNING_SECRET
+        sync: false # Optional Slack Signing Secret for Events API verification
       - key: ADMIN_KEY
         generateValue: true
       - key: DB_PATH
